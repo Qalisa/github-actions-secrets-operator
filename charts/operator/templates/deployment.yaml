@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "github-config-operator.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
+    helm.sh/chart: {{ include "github-config-operator.chart" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
+    spec:
+      serviceAccountName: {{ include "github-config-operator.name" . }}
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "github-config-operator.name" . }}-github
+                  key: token
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "github-config-operator.name" . }}-webhook
+                  key: secret
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

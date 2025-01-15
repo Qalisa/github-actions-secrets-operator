@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Fetch Go Dependencies",
+        "type": "shell",
+        "command": "go mod tidy",
+        "problemMatcher": [],
+        "detail": "Fetch required packages and tidy up the go.mod and go.sum files.",
+        "options": {
+            "cwd": "${workspaceFolder}/operator"
+        }
+      }
+    ]
+  }

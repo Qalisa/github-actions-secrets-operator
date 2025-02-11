@@ -2,7 +2,7 @@ apiVersion: qalisa.qalisa.github.io/v1alpha1
 kind: GithubSyncRepo
 metadata:
   name: vitrine-repo
-  namespace: default
+  namespace: gh-secret-operator
 spec:
   repository: "Qalisa/vitrine"
   secretsSyncRefs:

@@ -1,5 +1,0 @@
-## Append samples of your project ##
-resources:
-- qalisa_v1alpha1_githubactionsecretssync.yaml
-- qalisa_v1alpha1_githubsyncrepo.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples

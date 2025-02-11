@@ -27,7 +27,7 @@
         {
             "label": "Install Required Tools",
             "type": "shell",
-            "command": "brew install kind golangci-lint entr",
+            "command": "brew install kind golangci-lint helm",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
@@ -37,90 +37,28 @@
         },
         {
             "label": "Setup Development Environment",
-            "dependsOn": ["Install Go", "Install Kubebuilder", "Install Required Tools"],
+            "dependsOn": ["Install Kubebuilder", "Install Required Tools"],
             "problemMatcher": []
         },
         {
-            "label": "Create Test Cluster",
+            "label": "Create Local Cluster",
             "type": "shell",
-            "command": "kind create cluster --config kind-config.yaml --name operator-test",
-            "problemMatcher": [],
-            "dependsOn": ["Install Required Tools"],
-            "hide": true
-        },
-        {
-            "label": "Delete Test Cluster",
-            "type": "shell",
-            "command": "kind delete cluster --name operator-test",
+            "command": "kind create cluster --config kind-config.yaml --name operator-dev",
+            "dependsOn": ["Delete Local Cluster"],
             "problemMatcher": [],
             "hide": true
         },
         {
-            "label": "Run Unit Tests",
+            "label": "Delete Local Cluster",
             "type": "shell",
-            "command": "make test",
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "problemMatcher": {
-                "pattern": {
-                    "regexp": "^\\s*(.*_test\\.go):(\\d+):\\s+(.*)$",
-                    "file": 1,
-                    "line": 2,
-                    "message": 3
-                }
-            }
-        },
-        {
-            "label": "Run Specific Test",
-            "type": "shell",
-            "command": "go test -v -run ${input:testName} ./...",
-            "group": "test",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            }
-        },
-        {
-            "label": "Run E2E Tests",
-            "type": "shell",
-            "command": "make test",
-            "options": {
-                "env": {
-                    "KUBEBUILDER_ASSETS": "$(pwd)/bin/k8s/1.28.0-darwin-amd64",
-                    "USE_EXISTING_CLUSTER": "true"
-                }
-            },
-            "dependsOn": ["Create Test Cluster"],
+            "command": "kind delete cluster --name operator-dev",
             "problemMatcher": []
         },
         {
-            "label": "Deploy Operator Locally",
+            "label": "Operator: Deploy Locally",
             "type": "shell",
             "command": "make install && make deploy IMG=qalisa/push-github-secrets-operator:latest",
-            "dependsOn": ["Create Test Cluster"],
-            "problemMatcher": [],
-            "hide": true
-        },
-        {
-            "label": "Watch Tests",
-            "type": "shell",
-            "command": "find . -name '*_test.go' | entr -c make test",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            }
-        },
-        {
-            "label": "Generate Test Coverage",
-            "type": "shell",
-            "command": "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out",
+            "dependsOn": ["Create Local Cluster"],
             "problemMatcher": []
         },
         {
@@ -138,28 +76,6 @@
                     "message": 4
                 }
             }
-        },
-        {
-            "label": "Start Development Environment",
-            "dependsOn": [
-                "Create Test Cluster",
-                "Deploy Operator Locally"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "Clean Development Environment",
-            "dependsOn": [
-                "Delete Test Cluster"
-            ],
-            "problemMatcher": []
-        }
-    ],
-    "inputs": [
-        {
-            "id": "testName",
-            "type": "promptString",
-            "description": "Name of the test to run (e.g., TestReconcile)"
         }
     ]
 }

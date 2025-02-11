@@ -125,7 +125,7 @@ kubectl get githubsyncrepoes
 
 ## Development
 
-For detailed instructions on setting up your development environment, running tests, and debugging, please see our [Development Guide](docs/development.md).
+For detailed instructions on setting up your development environment and debugging, please see our [Development Guide](docs/development.md).
 
 ### Prerequisites
 

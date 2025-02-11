@@ -79,7 +79,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	// Process secrets
 	for _, secretRef := range instance.Spec.Secrets {
 		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: req.Namespace}, secret)
+		err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: "gh-secret-operator"}, secret)
 		if err != nil {
 			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
@@ -120,7 +120,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	// Process variables
 	for _, varRef := range instance.Spec.Variables {
 		configMap := &corev1.ConfigMap{}
-		err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: req.Namespace}, configMap)
+		err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: "gh-secret-operator"}, configMap)
 		if err != nil {
 			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil

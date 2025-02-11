@@ -9,7 +9,8 @@
             "presentation": {
                 "reveal": "always",
                 "panel": "new"
-            }
+            },
+            "hide": true
         },
         {
             "label": "Install Kubebuilder",
@@ -20,12 +21,145 @@
                 "reveal": "always",
                 "panel": "new"
             },
-            "dependsOn": ["Install Go"]
+            "dependsOn": ["Install Go"],
+            "hide": true
+        },
+        {
+            "label": "Install Required Tools",
+            "type": "shell",
+            "command": "brew install kind golangci-lint entr",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "hide": true
         },
         {
             "label": "Setup Development Environment",
-            "dependsOn": ["Install Go", "Install Kubebuilder"],
+            "dependsOn": ["Install Go", "Install Kubebuilder", "Install Required Tools"],
             "problemMatcher": []
+        },
+        {
+            "label": "Create Test Cluster",
+            "type": "shell",
+            "command": "kind create cluster --config kind-config.yaml --name operator-test",
+            "problemMatcher": [],
+            "dependsOn": ["Install Required Tools"],
+            "hide": true
+        },
+        {
+            "label": "Delete Test Cluster",
+            "type": "shell",
+            "command": "kind delete cluster --name operator-test",
+            "problemMatcher": [],
+            "hide": true
+        },
+        {
+            "label": "Run Unit Tests",
+            "type": "shell",
+            "command": "make test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^\\s*(.*_test\\.go):(\\d+):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "message": 3
+                }
+            }
+        },
+        {
+            "label": "Run Specific Test",
+            "type": "shell",
+            "command": "go test -v -run ${input:testName} ./...",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Run E2E Tests",
+            "type": "shell",
+            "command": "make test",
+            "options": {
+                "env": {
+                    "KUBEBUILDER_ASSETS": "$(pwd)/bin/k8s/1.28.0-darwin-amd64",
+                    "USE_EXISTING_CLUSTER": "true"
+                }
+            },
+            "dependsOn": ["Create Test Cluster"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Deploy Operator Locally",
+            "type": "shell",
+            "command": "make install && make deploy IMG=qalisa/push-github-secrets-operator:latest",
+            "dependsOn": ["Create Test Cluster"],
+            "problemMatcher": [],
+            "hide": true
+        },
+        {
+            "label": "Watch Tests",
+            "type": "shell",
+            "command": "find . -name '*_test.go' | entr -c make test",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Generate Test Coverage",
+            "type": "shell",
+            "command": "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Linter",
+            "type": "shell",
+            "command": "golangci-lint run",
+            "problemMatcher": {
+                "owner": "go",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(.+)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "message": 4
+                }
+            }
+        },
+        {
+            "label": "Start Development Environment",
+            "dependsOn": [
+                "Create Test Cluster",
+                "Deploy Operator Locally"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Development Environment",
+            "dependsOn": [
+                "Delete Test Cluster"
+            ],
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testName",
+            "type": "promptString",
+            "description": "Name of the test to run (e.g., TestReconcile)"
         }
     ]
 }

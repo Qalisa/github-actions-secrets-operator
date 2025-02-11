@@ -45,6 +45,7 @@ type GithubActionSecretsSyncReconciler struct {
 // +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubsyncrepoes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
@@ -68,6 +69,13 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 		instance.Status.Conditions = []metav1.Condition{}
 	}
 
+	// Get GithubSyncRepo instances that reference this sync config
+	repoList := &qalisav1alpha1.GithubSyncRepoList{}
+	if err := r.List(ctx, repoList); err != nil {
+		r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to list repos: %v", err))
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
+	}
+
 	// Process secrets
 	for _, secretRef := range instance.Spec.Secrets {
 		secret := &corev1.Secret{}
@@ -77,8 +85,8 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
-		value, ok := secret.Data[secretRef.Key]
-		if !ok {
+		secretValue, exists := secret.Data[secretRef.Key]
+		if !exists {
 			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
@@ -88,9 +96,25 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 			githubSecretName = secretRef.Key
 		}
 
-		// TODO: Get owner and repo from GithubSyncRepo instances that reference this sync config
-		// For now, we'll update the status to show we processed it
-		logger.Info("Would sync secret", "name", githubSecretName)
+		// Sync secret to all referenced repositories
+		for _, repo := range repoList.Items {
+			for _, syncRef := range repo.Spec.SecretsSyncRefs {
+				if syncRef == instance.Name {
+					owner, repoName, err := parseRepository(repo.Spec.Repository)
+					if err != nil {
+						logger.Error(err, "Failed to parse repository", "repository", repo.Spec.Repository)
+						continue
+					}
+
+					if err := r.GitHubClient.CreateOrUpdateSecret(ctx, owner, repoName, githubSecretName, secretValue); err != nil {
+						logger.Error(err, "Failed to sync secret", "repository", repo.Spec.Repository)
+						continue
+					}
+
+					logger.Info("Successfully synced secret", "name", githubSecretName, "repository", repo.Spec.Repository)
+				}
+			}
+		}
 	}
 
 	// Process variables
@@ -102,8 +126,8 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
-		value, ok := configMap.Data[varRef.Key]
-		if !ok {
+		varValue, exists := configMap.Data[varRef.Key]
+		if !exists {
 			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
@@ -113,9 +137,25 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 			githubVarName = varRef.Key
 		}
 
-		// TODO: Get owner and repo from GithubSyncRepo instances that reference this sync config
-		// For now, we'll update the status to show we processed it
-		logger.Info("Would sync variable", "name", githubVarName)
+		// Sync variable to all referenced repositories
+		for _, repo := range repoList.Items {
+			for _, syncRef := range repo.Spec.SecretsSyncRefs {
+				if syncRef == instance.Name {
+					owner, repoName, err := parseRepository(repo.Spec.Repository)
+					if err != nil {
+						logger.Error(err, "Failed to parse repository", "repository", repo.Spec.Repository)
+						continue
+					}
+
+					if err := r.GitHubClient.CreateOrUpdateVariable(ctx, owner, repoName, githubVarName, varValue); err != nil {
+						logger.Error(err, "Failed to sync variable", "repository", repo.Spec.Repository)
+						continue
+					}
+
+					logger.Info("Successfully synced variable", "name", githubVarName, "repository", repo.Spec.Repository)
+				}
+			}
+		}
 	}
 
 	// Update status
@@ -148,6 +188,15 @@ func (r *GithubActionSecretsSyncReconciler) setStatusCondition(instance *qalisav
 		}
 	}
 	instance.Status.Conditions = append(instance.Status.Conditions, condition)
+}
+
+// parseRepository splits a repository string in the format "owner/repo" into owner and repo parts
+func parseRepository(repository string) (string, string, error) {
+	parts := strings.Split(repository, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid repository format: %s, expected owner/repo", repository)
+	}
+	return parts[0], parts[1], nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

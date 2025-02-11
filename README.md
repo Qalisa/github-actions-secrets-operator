@@ -125,14 +125,17 @@ kubectl get githubsyncrepoes
 
 ## Development
 
+For detailed instructions on setting up your development environment, running tests, and debugging, please see our [Development Guide](docs/development.md).
+
 ### Prerequisites
 
-- Go 1.19+
 - Docker
-- VSCode
-- Kubernetes cluster (for testing)
+- VSCode with Go extension
+- Homebrew (for macOS)
 
-### Setup Development Environment
+All other dependencies (Go, kubectl, kind, etc.) will be installed automatically through VSCode tasks.
+
+### Quick Start
 
 1. Clone the repository:
 ```bash
@@ -140,32 +143,28 @@ git clone https://github.com/Qalisa/push-github-secrets-operator.git
 cd push-github-secrets-operator
 ```
 
-2. Install dependencies:
-   - Open VSCode command palette (Cmd/Ctrl + Shift + P)
-   - Type "Tasks: Run Task"
-   - Select "Setup Development Environment"
-   - This will install:
-     - Go (via Homebrew)
-     - Kubebuilder (latest version)
+2. Set up development environment:
+   ```bash
+   # Using VSCode Command Palette (Cmd/Ctrl + Shift + P):
+   > Tasks: Run Task > Setup Development Environment
+   ```
 
-3. Run the operator locally:
-```bash
-make install # Install CRDs
-make run # Run operator locally
-```
+3. Start local development:
+   ```bash
+   # Using VSCode Command Palette:
+   > Tasks: Run Task > Start Development Environment
+   ```
 
-### Building
+This will create a local Kind cluster and deploy the operator for testing.
 
-Build the operator image:
-```bash
-make docker-build docker-push IMG=your-registry/push-github-secrets-operator:tag
-```
+### Available Tasks
 
-### Testing
+- Run tests: `Tasks: Run Task > Run Unit Tests`
+- Run E2E tests: `Tasks: Run Task > Run E2E Tests`
+- Run linter: `Tasks: Run Task > Run Linter`
+- Generate test coverage: `Tasks: Run Task > Generate Test Coverage`
 
-```bash
-make test # Run tests
-```
+See the [Development Guide](docs/development.md) for complete documentation.
 
 ## Contributing
 

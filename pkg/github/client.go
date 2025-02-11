@@ -68,8 +68,8 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, owner, repo, name str
 		return fmt.Errorf("failed to get repository public key: %w", err)
 	}
 
-	// Encrypt secret value
-	encryptedValue, err := key.Encrypt(value)
+	// Encrypt secret value using sodium library
+	encryptedBytes, err := encryptSecretWithPublicKey(value, key.GetKey())
 	if err != nil {
 		return fmt.Errorf("failed to encrypt secret: %w", err)
 	}
@@ -78,7 +78,7 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, owner, repo, name str
 	secret := &github.EncryptedSecret{
 		Name:           name,
 		KeyID:          key.GetKeyID(),
-		EncryptedValue: string(encryptedValue),
+		EncryptedValue: encryptedBytes,
 	}
 	_, err = c.ghClient.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, secret)
 	if err != nil {
@@ -99,14 +99,38 @@ func (c *client) DeleteSecret(ctx context.Context, owner, repo, name string) err
 
 // CreateOrUpdateVariable creates or updates a GitHub Actions variable
 func (c *client) CreateOrUpdateVariable(ctx context.Context, owner, repo, name, value string) error {
-	variable := &github.ActionsVariable{
-		Name:  &name,
-		Value: &value,
+	// Use the raw request method since the GitHub API client doesn't have variable methods yet
+	url := fmt.Sprintf("repos/%v/%v/actions/variables/%v", owner, repo, name)
+	payload := struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}{
+		Name:  name,
+		Value: value,
 	}
-	_, err := c.ghClient.Actions.CreateOrUpdateRepoVariable(ctx, owner, repo, variable)
+
+	req, err := c.ghClient.NewRequest("PATCH", url, payload)
 	if err != nil {
-		return fmt.Errorf("failed to create/update variable: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
+
+	resp, err := c.ghClient.Do(ctx, req, nil)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			// Variable doesn't exist, create it
+			req, err = c.ghClient.NewRequest("POST", fmt.Sprintf("repos/%v/%v/actions/variables", owner, repo), payload)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %w", err)
+			}
+			_, err = c.ghClient.Do(ctx, req, nil)
+			if err != nil {
+				return fmt.Errorf("failed to create variable: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to update variable: %w", err)
+		}
+	}
+
 	return nil
 }
 

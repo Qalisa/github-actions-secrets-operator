@@ -1,15 +1,31 @@
 {
     "version": "2.0.0",
     "tasks": [
-      {
-        "label": "Fetch Go Dependencies",
-        "type": "shell",
-        "command": "go mod tidy",
-        "problemMatcher": [],
-        "detail": "Fetch required packages and tidy up the go.mod and go.sum files.",
-        "options": {
-            "cwd": "${workspaceFolder}/operator"
+        {
+            "label": "Install Go",
+            "type": "shell",
+            "command": "brew install go",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Install Kubebuilder",
+            "type": "shell",
+            "command": "curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH) && chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "dependsOn": ["Install Go"]
+        },
+        {
+            "label": "Setup Development Environment",
+            "dependsOn": ["Install Go", "Install Kubebuilder"],
+            "problemMatcher": []
         }
-      }
     ]
-  }
+}

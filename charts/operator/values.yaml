@@ -1,0 +1,80 @@
+# Default values for push-github-secrets-operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: qalisa/push-github-secrets-operator
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+github:
+  # GitHub App configuration
+  appId: ""  # Required: GitHub App ID
+  installationId: ""  # Required: GitHub App Installation ID
+  privateKeyPath: "/etc/github/private-key"  # Path where the private key will be mounted
+  existingSecret: ""  # Name of existing secret containing GitHub App private key
+  # If existingSecret is not provided, create a new secret with this key
+  privateKey: ""  # GitHub App private key in PEM format
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Metrics configuration
+metrics:
+  enabled: true
+  secure: true
+  port: 8443
+
+# Health probe configuration
+healthProbe:
+  port: 8081
+
+# Leader election configuration
+leaderElection:
+  enabled: true

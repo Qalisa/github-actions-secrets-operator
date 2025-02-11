@@ -1,38 +1,93 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "github-config-operator.name" . }}
+  name: {{ include "operator.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
-    helm.sh/chart: {{ include "github-config-operator.chart" . }}
+    {{- include "operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
+      {{- include "operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        app.kubernetes.io/name: {{ include "github-config-operator.name" . }}
+        {{- include "operator.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "github-config-operator.name" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "operator.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: operator
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --health-probe-bind-address=:{{ .Values.healthProbe.port }}
+            {{- if .Values.metrics.enabled }}
+            - --metrics-bind-address=:{{ .Values.metrics.port }}
+            - --metrics-secure={{ .Values.metrics.secure }}
+            {{- else }}
+            - --metrics-bind-address=0
+            {{- end }}
+            {{- if .Values.leaderElection.enabled }}
+            - --leader-elect=true
+            {{- end }}
+            - --github-app-id={{ required "GitHub App ID is required" .Values.github.appId }}
+            - --github-installation-id={{ required "GitHub Installation ID is required" .Values.github.installationId }}
+            - --github-private-key-path={{ .Values.github.privateKeyPath }}
           ports:
-            - containerPort: 8080
-              name: http
-          env:
-            - name: GITHUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "github-config-operator.name" . }}-github
-                  key: token
-            - name: WEBHOOK_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "github-config-operator.name" . }}-webhook
-                  key: secret
+            - name: healthz
+              containerPort: {{ .Values.healthProbe.port }}
+              protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: healthz
+          volumeMounts:
+            - name: github-private-key
+              mountPath: /etc/github
+              readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: github-private-key
+          secret:
+            {{- if .Values.github.existingSecret }}
+            secretName: {{ .Values.github.existingSecret }}
+            {{- else }}
+            secretName: {{ include "operator.fullname" . }}-github
+            {{- end }}
+            items:
+              - key: private-key
+                path: private-key
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

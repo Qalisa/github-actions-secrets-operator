@@ -1,6 +1,0 @@
-apiVersion: v2
-name: operator
-description: A Kubernetes operator for managing GitHub repository secrets and variables depending on topics configured
-version: 0.1.0
-appVersion: "1.0.0"
-type: application

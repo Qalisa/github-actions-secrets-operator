@@ -1,0 +1,35 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - qalisa.qalisa.github.io
+  resources:
+  - githubactionsecretssyncs
+  - githubsyncrepoes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - qalisa.qalisa.github.io
+  resources:
+  - githubactionsecretssyncs/finalizers
+  - githubsyncrepoes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - qalisa.qalisa.github.io
+  resources:
+  - githubactionsecretssyncs/status
+  - githubsyncrepoes/status
+  verbs:
+  - get
+  - patch
+  - update

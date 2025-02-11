@@ -1,0 +1,11 @@
+apiVersion: qalisa.qalisa.github.io/v1alpha1
+kind: GithubActionSecretsSync
+metadata:
+  name: vitrine-sync
+  namespace: default
+spec:
+  secrets:
+    - secretRef: vitrine-secrets
+      key: API_KEY
+    - secretRef: vitrine-secrets
+      key: DB_PASSWORD

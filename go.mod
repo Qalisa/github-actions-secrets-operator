@@ -2,7 +2,7 @@ module github.com/qalisa/push-github-secrets-operator
 
 go 1.23.0
 
-godebug default=go1.23
+toolchain go1.23.6
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.13.0

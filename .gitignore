@@ -31,3 +31,6 @@ go.work
 # Local development files
 .env
 github-privateKey.pem
+
+#
+cmd/__*

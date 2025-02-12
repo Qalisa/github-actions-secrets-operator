@@ -123,16 +123,16 @@ ifndef ignore-not-found
   ignore-not-found = false
 endif
 
-.PHONY: install
-install: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+.PHONY: install-crds
+install-crds: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	kubectl apply -f charts/operator/crds/
 
-.PHONY: uninstall
-uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+.PHONY: uninstall-crds
+uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/operator/crds/
 
 .PHONY: deploy-without-image
-deploy-without-image: kind-delete kind-create install
+deploy-without-image: kind-create install-crds apply-samples
 
 .PHONY: deploy
 deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.

@@ -14,7 +14,6 @@ bin/
 
 # editor and IDE paraphernalia
 .idea
-.vscode
 *.swp
 *.swo
 *~
@@ -31,4 +30,4 @@ go.work
 
 # Local development files
 .env
-*.pem
+github-privateKey.pem

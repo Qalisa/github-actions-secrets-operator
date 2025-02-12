@@ -82,7 +82,17 @@ build: fmt vet ## Build manager binary.
 
 .PHONY: run
 run: fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file is required" >&2; \
+		exit 1; \
+	fi
+	@if ! grep -q "GITHUB_APP_ID=" .env || \
+		! grep -q "GITHUB_INSTALLATION_ID=" .env || \
+		! grep -q "GITHUB_PRIVATE_KEY_PATH=" .env; then \
+		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
+		exit 1; \
+	fi
+	source .env && go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
@@ -123,12 +133,22 @@ uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 
 .PHONY: deploy
 deploy: kind-delete kind-create install docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	helm upgrade --install push-github-secrets-operator charts/operator \
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file is required" >&2; \
+		exit 1; \
+	fi
+	@if ! grep -q "GITHUB_APP_ID=" .env || \
+		! grep -q "GITHUB_INSTALLATION_ID=" .env || \
+		! grep -q "GITHUB_PRIVATE_KEY_PATH=" .env; then \
+		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
+		exit 1; \
+	fi
+	source .env && helm upgrade --install push-github-secrets-operator charts/operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
-		--set github.appId="1" \
-		--set github.installationId="1" \
-		--set github.privateKey="dummy"
+		--set github.appId="$$GITHUB_APP_ID" \
+		--set github.installationId="$$GITHUB_INSTALLATION_ID" \
+		--set github.privateKeyPath="$$GITHUB_PRIVATE_KEY_PATH"
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
@@ -156,3 +176,11 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 .PHONY: helm-docs
 helm-docs: ## Generate Helm chart documentation
 	docker run --rm --volume "$(PWD):/helm-docs" -u $(shell id -u) jnorwood/helm-docs:latest
+
+##@ Samples
+
+.PHONY: apply-samples
+apply-samples: ## Apply sample CRDs to the cluster
+	kubectl apply -f config/samples/vitrine-repo-gh-operator.yaml
+	kubectl apply -f config/samples/vitrine-secret-gh-operator.yaml
+	kubectl apply -f config/samples/vitrine-sync-gh-operator.yaml

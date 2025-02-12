@@ -28,6 +28,12 @@
                     "message": 4
                 }
             }
+        },
+        {
+            "label": "Apply Sample CRDs",
+            "type": "shell",
+            "command": "make apply-samples",
+            "problemMatcher": []
         }
     ]
 }

@@ -8,10 +8,16 @@
             "problemMatcher": []
         },
         {
-            "label": "Deploy Operator Locally",
+            "label": "Deploy Operator Locally (with CRDs test samples)",
             "type": "shell",
-            "command": "make deploy",
+            "command": "make deploy apply-samples",
             "problemMatcher": []
+        },
+        {
+            "label": "Deploy debug cluster",
+            "type": "shell",
+            "command": "make deploy-without-image",
+            "hide": true
         },
         {
             "label": "Run Linter",
@@ -29,11 +35,5 @@
                 }
             }
         },
-        {
-            "label": "Apply Sample CRDs",
-            "type": "shell",
-            "command": "make apply-samples",
-            "problemMatcher": []
-        }
     ]
 }

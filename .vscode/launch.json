@@ -11,7 +11,8 @@
                 "KUBECONFIG": "${env:HOME}/.kube/config",
                 "GITHUB_PRIVATE_KEY_PATH": "${workspaceFolder}/github-privateKey.pem"
             },
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "Deploy debug cluster"
         },
     ]
 }

@@ -131,8 +131,11 @@ install: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/operator/crds/
 
+.PHONY: deploy-without-image
+deploy-without-image: kind-delete kind-create install
+
 .PHONY: deploy
-deploy: kind-delete kind-create install docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	@if [ ! -f .env ]; then \
 		echo "Error: .env file is required" >&2; \
 		exit 1; \
@@ -181,6 +184,7 @@ helm-docs: ## Generate Helm chart documentation
 
 .PHONY: apply-samples
 apply-samples: ## Apply sample CRDs to the cluster
-	kubectl apply -f config/samples/vitrine-repo-gh-operator.yaml
-	kubectl apply -f config/samples/vitrine-secret-gh-operator.yaml
-	kubectl apply -f config/samples/vitrine-sync-gh-operator.yaml
+	kubectl apply -f config/samples/ns.yaml
+	kubectl apply -f config/samples/secret.gh-action.yaml
+	kubectl apply -f config/samples/gass.default.yaml
+	kubectl apply -f config/samples/gsr.qalisa-vitrine.yaml

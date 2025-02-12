@@ -69,7 +69,7 @@ func (c *client) CreateOrUpdateSecret(ctx context.Context, owner, repo, name str
 	}
 
 	// Encrypt secret value using sodium library
-	encryptedBytes, err := encryptSecretWithPublicKey(value, key.GetKey())
+	encryptedBytes, err := encryptSecretWithPublicKey(value, key)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt secret: %w", err)
 	}

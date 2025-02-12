@@ -8,15 +8,17 @@
             "problemMatcher": []
         },
         {
-            "label": "Deploy Operator Locally (with CRDs test samples)",
+            "label": "Deploy Controller into Kind w/ Helm",
             "type": "shell",
+            "detail": "Create a local Kind cluster, pushes CRDs, uploads Controller image into Kind, apply test samples",
             "command": "make deploy apply-samples",
             "problemMatcher": []
         },
         {
-            "label": "Deploy debug cluster",
+            "label": "Prepare Kind for Controller debugging",
             "type": "shell",
-            "command": "make deploy-without-image",
+            "command": "make deploy-without-image apply-samples",
+            "problemMatcher": [],
             "hide": true
         },
         {

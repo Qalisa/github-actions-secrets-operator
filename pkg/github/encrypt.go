@@ -1,41 +1,30 @@
 package github
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
 
+	"github.com/google/go-github/v60/github"
 	"golang.org/x/crypto/nacl/box"
 )
 
 // encryptSecretWithPublicKey encrypts a secret using GitHub's public key
-func encryptSecretWithPublicKey(secret []byte, publicKey string) (string, error) {
-	// Decode the public key
-	decodedPublicKey, err := base64.StdEncoding.DecodeString(publicKey)
+func encryptSecretWithPublicKey(secret []byte, publicKey *github.PublicKey) (string, error) {
+	decodedPubKey, err := base64.StdEncoding.DecodeString(publicKey.GetKey())
 	if err != nil {
 		return "", fmt.Errorf("failed to decode public key: %w", err)
 	}
+	var peersPubKey [32]byte
+	copy(peersPubKey[:], decodedPubKey[0:32])
 
-	// Convert to the correct format
-	var ghPubKey [32]byte
-	copy(ghPubKey[:], decodedPublicKey)
-
-	// Generate a random nonce
-	var nonce [24]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		return "", fmt.Errorf("failed to generate nonce: %w", err)
-	}
-
-	// Generate ephemeral key pair
-	_, priv, err := box.GenerateKey(rand.Reader)
+	var rand io.Reader
+	eBody, err := box.SealAnonymous(nil, secret[:], &peersPubKey, rand)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate keypair: %w", err)
+		return "", fmt.Errorf("failed to encrypt body: %w", err)
+
 	}
 
-	// Encrypt the secret using libsodium box
-	encryptedBytes := box.Seal(nonce[:], secret, &nonce, &ghPubKey, priv)
-
-	// Encode the result in base64
-	encoded := base64.StdEncoding.EncodeToString(encryptedBytes)
-	return encoded, nil
+	//
+	return base64.StdEncoding.EncodeToString(eBody), nil
 }

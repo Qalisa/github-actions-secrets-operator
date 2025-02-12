@@ -19,19 +19,17 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/push-github-secrets-operator/internal/utils"
 	"github.com/qalisa/push-github-secrets-operator/pkg/github"
 )
 
@@ -72,22 +70,21 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	// Get GithubSyncRepo instances that reference this sync config
 	repoList := &qalisav1alpha1.GithubSyncRepoList{}
 	if err := r.List(ctx, repoList); err != nil {
-		r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to list repos: %v", err))
+		utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to list repos: %v", err))
 		return ctrl.Result{RequeueAfter: time.Minute}, nil
 	}
 
 	// Process secrets
 	for _, secretRef := range instance.Spec.Secrets {
-		secret := &corev1.Secret{}
-		err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: "gh-secret-operator"}, secret)
+		secret, err := utils.GetSecret(ctx, r.Client, "gh-secret-operator", secretRef.SecretRef)
 		if err != nil {
-			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
+			utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
 		secretValue, exists := secret.Data[secretRef.Key]
 		if !exists {
-			r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
+			utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
@@ -100,7 +97,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 		for _, repo := range repoList.Items {
 			for _, syncRef := range repo.Spec.SecretsSyncRefs {
 				if syncRef == instance.Name {
-					owner, repoName, err := parseRepository(repo.Spec.Repository)
+					owner, repoName, err := utils.ParseRepository(repo.Spec.Repository)
 					if err != nil {
 						logger.Error(err, "Failed to parse repository", "repository", repo.Spec.Repository)
 						continue
@@ -119,16 +116,15 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 
 	// Process variables
 	for _, varRef := range instance.Spec.Variables {
-		configMap := &corev1.ConfigMap{}
-		err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: "gh-secret-operator"}, configMap)
+		configMap, err := utils.GetConfigMap(ctx, r.Client, "gh-secret-operator", varRef.ConfigMapRef)
 		if err != nil {
-			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
+			utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
 		varValue, exists := configMap.Data[varRef.Key]
 		if !exists {
-			r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
+			utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
@@ -141,7 +137,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 		for _, repo := range repoList.Items {
 			for _, syncRef := range repo.Spec.SecretsSyncRefs {
 				if syncRef == instance.Name {
-					owner, repoName, err := parseRepository(repo.Spec.Repository)
+					owner, repoName, err := utils.ParseRepository(repo.Spec.Repository)
 					if err != nil {
 						logger.Error(err, "Failed to parse repository", "repository", repo.Spec.Repository)
 						continue
@@ -159,7 +155,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	// Update status
-	r.setStatusCondition(instance, "True", "Successfully processed all secrets and variables")
+	utils.SetStatusCondition(instance, &instance.Status.Conditions, "True", "Successfully processed all secrets and variables")
 	instance.Status.LastSyncTime = &metav1.Time{Time: time.Now()}
 	if err := r.Status().Update(ctx, instance); err != nil {
 		logger.Error(err, "Failed to update status")
@@ -167,36 +163,6 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	return ctrl.Result{RequeueAfter: time.Hour}, nil
-}
-
-// setStatusCondition updates the status condition of the GithubActionSecretsSync instance
-func (r *GithubActionSecretsSyncReconciler) setStatusCondition(instance *qalisav1alpha1.GithubActionSecretsSync, status, message string) {
-	condition := metav1.Condition{
-		Type:               "Synced",
-		Status:             metav1.ConditionStatus(status),
-		ObservedGeneration: instance.Generation,
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-		Reason:             strings.ReplaceAll(status, " ", ""),
-		Message:            message,
-	}
-
-	// Update or append the condition
-	for i, existingCondition := range instance.Status.Conditions {
-		if existingCondition.Type == condition.Type {
-			instance.Status.Conditions[i] = condition
-			return
-		}
-	}
-	instance.Status.Conditions = append(instance.Status.Conditions, condition)
-}
-
-// parseRepository splits a repository string in the format "owner/repo" into owner and repo parts
-func parseRepository(repository string) (string, string, error) {
-	parts := strings.Split(repository, "/")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid repository format: %s, expected owner/repo", repository)
-	}
-	return parts[0], parts[1], nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

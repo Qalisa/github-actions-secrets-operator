@@ -19,10 +19,8 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/push-github-secrets-operator/internal/utils"
 	"github.com/qalisa/push-github-secrets-operator/pkg/github"
 )
 
@@ -65,12 +64,11 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Parse repository owner and name
-	parts := strings.Split(instance.Spec.Repository, "/")
-	if len(parts) != 2 {
-		r.setStatusCondition(instance, "False", "Invalid repository format. Must be 'owner/repo'")
+	owner, repo, err := utils.ParseRepository(instance.Spec.Repository)
+	if err != nil {
+		utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
 		return ctrl.Result{RequeueAfter: time.Hour}, nil
 	}
-	owner, repo := parts[0], parts[1]
 
 	// Initialize status conditions if they don't exist
 	if instance.Status.Conditions == nil {
@@ -82,22 +80,21 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		secretsSync := &qalisav1alpha1.GithubActionSecretsSync{}
 		err := r.Get(ctx, types.NamespacedName{Name: syncRef}, secretsSync)
 		if err != nil {
-			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get GithubActionSecretsSync %s: %v", syncRef, err))
+			utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to get GithubActionSecretsSync %s: %v", syncRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
 		// Process secrets
 		for _, secretRef := range secretsSync.Spec.Secrets {
-			secret := &corev1.Secret{}
-			err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: req.Namespace}, secret)
+			secret, err := utils.GetSecret(ctx, r.Client, req.Namespace, secretRef.SecretRef)
 			if err != nil {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
 			value, ok := secret.Data[secretRef.Key]
 			if !ok {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
@@ -108,7 +105,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 			err = r.GitHubClient.CreateOrUpdateSecret(ctx, owner, repo, githubSecretName, value)
 			if err != nil {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to sync secret %s: %v", githubSecretName, err))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to sync secret %s: %v", githubSecretName, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 			logger.Info("Synced secret", "name", githubSecretName)
@@ -116,16 +113,15 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		// Process variables
 		for _, varRef := range secretsSync.Spec.Variables {
-			configMap := &corev1.ConfigMap{}
-			err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: req.Namespace}, configMap)
+			configMap, err := utils.GetConfigMap(ctx, r.Client, req.Namespace, varRef.ConfigMapRef)
 			if err != nil {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
 			value, ok := configMap.Data[varRef.Key]
 			if !ok {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
@@ -136,7 +132,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 			err = r.GitHubClient.CreateOrUpdateVariable(ctx, owner, repo, githubVarName, value)
 			if err != nil {
-				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to sync variable %s: %v", githubVarName, err))
+				utils.SetStatusCondition(instance, &instance.Status.Conditions, "False", fmt.Sprintf("Failed to sync variable %s: %v", githubVarName, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 			logger.Info("Synced variable", "name", githubVarName)
@@ -144,7 +140,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Update status
-	r.setStatusCondition(instance, "True", "Successfully synced all secrets and variables")
+	utils.SetStatusCondition(instance, &instance.Status.Conditions, "True", "Successfully synced all secrets and variables")
 	instance.Status.LastSyncTime = &metav1.Time{Time: time.Now()}
 	if err := r.Status().Update(ctx, instance); err != nil {
 		logger.Error(err, "Failed to update status")
@@ -152,27 +148,6 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	return ctrl.Result{RequeueAfter: time.Hour}, nil
-}
-
-// setStatusCondition updates the status condition of the GithubSyncRepo instance
-func (r *GithubSyncRepoReconciler) setStatusCondition(instance *qalisav1alpha1.GithubSyncRepo, status, message string) {
-	condition := metav1.Condition{
-		Type:               "Synced",
-		Status:             metav1.ConditionStatus(status),
-		ObservedGeneration: instance.Generation,
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-		Reason:             strings.ReplaceAll(status, " ", ""),
-		Message:            message,
-	}
-
-	// Update or append the condition
-	for i, existingCondition := range instance.Status.Conditions {
-		if existingCondition.Type == condition.Type {
-			instance.Status.Conditions[i] = condition
-			return
-		}
-	}
-	instance.Status.Conditions = append(instance.Status.Conditions, condition)
 }
 
 // SetupWithManager sets up the controller with the Manager.

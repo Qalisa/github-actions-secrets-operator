@@ -67,7 +67,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Parse repository owner and name
 	parts := strings.Split(instance.Spec.Repository, "/")
 	if len(parts) != 2 {
-		r.setStatusCondition(instance, "Failed", "Invalid repository format. Must be 'owner/repo'")
+		r.setStatusCondition(instance, "False", "Invalid repository format. Must be 'owner/repo'")
 		return ctrl.Result{RequeueAfter: time.Hour}, nil
 	}
 	owner, repo := parts[0], parts[1]
@@ -82,7 +82,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		secretsSync := &qalisav1alpha1.GithubActionSecretsSync{}
 		err := r.Get(ctx, types.NamespacedName{Name: syncRef}, secretsSync)
 		if err != nil {
-			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get GithubActionSecretsSync %s: %v", syncRef, err))
+			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get GithubActionSecretsSync %s: %v", syncRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
@@ -91,13 +91,13 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			secret := &corev1.Secret{}
 			err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: req.Namespace}, secret)
 			if err != nil {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
 			value, ok := secret.Data[secretRef.Key]
 			if !ok {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
@@ -108,7 +108,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 			err = r.GitHubClient.CreateOrUpdateSecret(ctx, owner, repo, githubSecretName, value)
 			if err != nil {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to sync secret %s: %v", githubSecretName, err))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to sync secret %s: %v", githubSecretName, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 			logger.Info("Synced secret", "name", githubSecretName)
@@ -119,13 +119,13 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			configMap := &corev1.ConfigMap{}
 			err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: req.Namespace}, configMap)
 			if err != nil {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
 			value, ok := configMap.Data[varRef.Key]
 			if !ok {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 
@@ -136,7 +136,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 			err = r.GitHubClient.CreateOrUpdateVariable(ctx, owner, repo, githubVarName, value)
 			if err != nil {
-				r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to sync variable %s: %v", githubVarName, err))
+				r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to sync variable %s: %v", githubVarName, err))
 				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 			logger.Info("Synced variable", "name", githubVarName)
@@ -144,7 +144,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Update status
-	r.setStatusCondition(instance, "Synced", "Successfully synced all secrets and variables")
+	r.setStatusCondition(instance, "True", "Successfully synced all secrets and variables")
 	instance.Status.LastSyncTime = &metav1.Time{Time: time.Now()}
 	if err := r.Status().Update(ctx, instance); err != nil {
 		logger.Error(err, "Failed to update status")

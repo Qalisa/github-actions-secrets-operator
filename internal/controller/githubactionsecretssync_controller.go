@@ -72,7 +72,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	// Get GithubSyncRepo instances that reference this sync config
 	repoList := &qalisav1alpha1.GithubSyncRepoList{}
 	if err := r.List(ctx, repoList); err != nil {
-		r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to list repos: %v", err))
+		r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to list repos: %v", err))
 		return ctrl.Result{RequeueAfter: time.Minute}, nil
 	}
 
@@ -81,13 +81,13 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 		secret := &corev1.Secret{}
 		err := r.Get(ctx, types.NamespacedName{Name: secretRef.SecretRef, Namespace: "gh-secret-operator"}, secret)
 		if err != nil {
-			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
+			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get secret %s: %v", secretRef.SecretRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
 		secretValue, exists := secret.Data[secretRef.Key]
 		if !exists {
-			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
+			r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
@@ -122,13 +122,13 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 		configMap := &corev1.ConfigMap{}
 		err := r.Get(ctx, types.NamespacedName{Name: varRef.ConfigMapRef, Namespace: "gh-secret-operator"}, configMap)
 		if err != nil {
-			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
+			r.setStatusCondition(instance, "False", fmt.Sprintf("Failed to get configmap %s: %v", varRef.ConfigMapRef, err))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
 		varValue, exists := configMap.Data[varRef.Key]
 		if !exists {
-			r.setStatusCondition(instance, "Failed", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
+			r.setStatusCondition(instance, "False", fmt.Sprintf("Key %s not found in configmap %s", varRef.Key, varRef.ConfigMapRef))
 			return ctrl.Result{RequeueAfter: time.Minute}, nil
 		}
 
@@ -159,7 +159,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	// Update status
-	r.setStatusCondition(instance, "Synced", "Successfully processed all secrets and variables")
+	r.setStatusCondition(instance, "True", "Successfully processed all secrets and variables")
 	instance.Status.LastSyncTime = &metav1.Time{Time: time.Now()}
 	if err := r.Status().Update(ctx, instance); err != nil {
 		logger.Error(err, "Failed to update status")

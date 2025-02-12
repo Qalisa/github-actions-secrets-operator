@@ -2,27 +2,34 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Setup Development Environment",
+            "label": "🔧 Setup Development Environment",
             "type": "shell",
             "command": "make setup-dev",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "hide": true
         },
         {
-            "label": "Deploy Controller into Kind w/ Helm",
+            "label": "👵⚙️ 1a. Deploy Controller into Kind w/ Helm",
             "type": "shell",
             "detail": "Create a local Kind cluster, pushes CRDs, uploads Controller image into Kind, apply test samples",
             "command": "make deploy apply-samples",
+            "hide": true,
             "problemMatcher": []
         },
         {
-            "label": "Prepare Kind for Controller debugging",
+            "label": "👵⚙️ 1b. Prepare Kind for Controller debugging",
             "type": "shell",
             "command": "make deploy-without-image apply-samples",
             "problemMatcher": [],
             "hide": true
         },
         {
-            "label": "Run Linter",
+            "label": "👵 Apply sample CRDs",
+            "type": "shell",
+            "command": "make apply-samples",
+        },
+        {
+            "label": "🧶 Run Linter",
             "type": "shell",
             "command": "make lint",
             "problemMatcher": {

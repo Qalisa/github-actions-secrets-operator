@@ -33,10 +33,33 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+##@ Development Setup
+
+.PHONY: setup-dev
+setup-dev: install-go install-kubebuilder install-tools ## Install all development dependencies
+
+.PHONY: install-go
+install-go: ## Install Go using brew
+	brew install go
+
+.PHONY: install-kubebuilder
+install-kubebuilder: install-go ## Install Kubebuilder
+	curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$$(go env GOOS)/$$(go env GOARCH) && \
+	chmod +x kubebuilder && \
+	sudo mv kubebuilder /usr/local/bin/
+
+.PHONY: install-tools
+install-tools: ## Install required tools using brew
+	brew install kind golangci-lint helm
+
+.PHONY: lint
+lint: ## Run golangci-lint
+	golangci-lint run
+
 ##@ Development
 
-.PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+.PHONY: generate-crds
+generate-crds: controller-gen ## Generate CRDs (only run this when API changes)
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=charts/operator/crds
 
 .PHONY: generate
@@ -54,11 +77,11 @@ vet: ## Run go vet against code.
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+run: fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
@@ -68,8 +91,20 @@ run: manifests generate fmt vet ## Run a controller from your host.
 docker-build: ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
+.PHONY: kind-create
+kind-create: ## Create kind cluster for local development
+	kind create cluster --name operator-dev --config kind-config.yaml || true
+
+.PHONY: kind-delete
+kind-delete: ## Delete kind cluster
+	kind delete cluster --name operator-dev
+
+.PHONY: docker-load
+docker-load: docker-build ## Load docker image into kind cluster.
+	kind load docker-image ${IMG} --name operator-dev
+
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: docker-build ## Push docker image with the manager.
 	docker push ${IMG}
 
 ##@ Deployment
@@ -79,18 +114,21 @@ ifndef ignore-not-found
 endif
 
 .PHONY: install
-install: manifests ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	kubectl apply -f charts/operator/crds/
 
 .PHONY: uninstall
-uninstall: manifests ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
+uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/operator/crds/
 
 .PHONY: deploy
-deploy: manifests ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: kind-delete kind-create install docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	helm upgrade --install push-github-secrets-operator charts/operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
-		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:)
+		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
+		--set github.appId="1" \
+		--set github.installationId="1" \
+		--set github.privateKey="dummy"
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
@@ -107,7 +145,7 @@ $(LOCALBIN):
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.13.0
+CONTROLLER_TOOLS_VERSION ?= v0.17.2
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.

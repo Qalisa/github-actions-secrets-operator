@@ -74,6 +74,13 @@ make install
 make deploy
 ```
 
+Note: If you make changes to the API (in api/v1alpha1/), you'll need to regenerate the CRDs:
+```bash
+make generate-crds
+git add charts/operator/crds/
+git commit -m "Update CRDs"
+```
+
 ## Sample Resources
 
 Sample resources are provided in `config/samples/`:

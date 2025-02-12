@@ -2,69 +2,21 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Install Go",
-            "type": "shell",
-            "command": "brew install go",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            },
-            "hide": true
-        },
-        {
-            "label": "Install Kubebuilder",
-            "type": "shell",
-            "command": "curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH) && chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            },
-            "dependsOn": ["Install Go"],
-            "hide": true
-        },
-        {
-            "label": "Install Required Tools",
-            "type": "shell",
-            "command": "brew install kind golangci-lint helm",
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            },
-            "hide": true
-        },
-        {
             "label": "Setup Development Environment",
-            "dependsOn": ["Install Kubebuilder", "Install Required Tools"],
+            "type": "shell",
+            "command": "make setup-dev",
             "problemMatcher": []
         },
         {
-            "label": "Create Local Cluster",
+            "label": "Deploy Operator Locally",
             "type": "shell",
-            "command": "kind create cluster --config kind-config.yaml --name operator-dev",
-            "dependsOn": ["Delete Local Cluster"],
-            "problemMatcher": [],
-            "hide": true
-        },
-        {
-            "label": "Delete Local Cluster",
-            "type": "shell",
-            "command": "kind delete cluster --name operator-dev",
-            "problemMatcher": []
-        },
-        {
-            "label": "Operator: Deploy Locally",
-            "type": "shell",
-            "command": "make install && make deploy IMG=qalisa/push-github-secrets-operator:latest",
-            "dependsOn": ["Create Local Cluster"],
+            "command": "make deploy",
             "problemMatcher": []
         },
         {
             "label": "Run Linter",
             "type": "shell",
-            "command": "golangci-lint run",
+            "command": "make lint",
             "problemMatcher": {
                 "owner": "go",
                 "fileLocation": ["relative", "${workspaceFolder}"],

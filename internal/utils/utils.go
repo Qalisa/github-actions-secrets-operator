@@ -3,8 +3,13 @@ package utils
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"strings"
 	"time"
+
+	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/push-github-secrets-operator/pkg/github"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,10 +17,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SetStatusCondition updates the status condition of the resource
-func SetStatusCondition(instance metav1.Object, conditions *[]metav1.Condition, status, message string) {
+//
+//
+//
+
+type GithubActionSecVarType int
+
+const (
+	Variable GithubActionSecVarType = iota
+	Secret   GithubActionSecVarType = iota
+)
+
+// {Variable|Secret}:<GithubActionSecretsSync:name>:<{Variable|Secret}:gh-name>:(value&hash(value))
+type SecVarsBySync map[GithubActionSecVarType]map[string]map[string]SecVar
+
+//
+//
+//
+
+func HashBytes(s []byte) uint32 {
+	h := fnv.New32a()
+	h.Write(s)
+	return h.Sum32()
+}
+
+// Helper function to check if a value exists in an array
+func Contains(arr []string, target string) bool {
+	for _, item := range arr {
+		if item == target {
+			return true
+		}
+	}
+	return false
+}
+
+//
+//
+//
+
+func SetSyncedStatusCondition(instance metav1.Object, conditions *[]metav1.Condition, status, message string) {
+	setStatusCondition(instance, conditions, "Synced", status, message)
+}
+
+// Updates the status condition of the resource
+func setStatusCondition(instance metav1.Object, conditions *[]metav1.Condition, statusType, status, message string) {
 	condition := metav1.Condition{
-		Type:               "Synced",
+		Type:               statusType,
 		Status:             metav1.ConditionStatus(status),
 		ObservedGeneration: instance.GetGeneration(),
 		LastTransitionTime: metav1.Time{Time: time.Now()},
@@ -33,13 +80,42 @@ func SetStatusCondition(instance metav1.Object, conditions *[]metav1.Condition, 
 	*conditions = append(*conditions, condition)
 }
 
-// ParseRepository splits a repository string in the format "owner/repo" into owner and repo parts
-func ParseRepository(repository string) (string, string, error) {
-	parts := strings.Split(repository, "/")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid repository format: %s, expected owner/repo", repository)
+func getStatusCondition(conditions *[]metav1.Condition, statusType string) *metav1.Condition {
+	for i, existingCondition := range *conditions {
+		if existingCondition.Type == statusType {
+			return &(*conditions)[i]
+		}
 	}
-	return parts[0], parts[1], nil
+
+	return nil
+}
+
+func getSyncedStatusCondition(conditions *[]metav1.Condition) *metav1.Condition {
+	return getStatusCondition(conditions, "Synced")
+}
+
+//
+//
+//
+
+type GithubRepository struct {
+	Org  string
+	Name string
+}
+
+// ParseRepository splits a repository string in the format "owner/repo" into owner and repo parts
+func ParseRepository(repository qalisav1alpha1.GithubSyncRepo) (GithubRepository, error) {
+	//
+	toParse := repository.Spec.Repository
+	parts := strings.Split(toParse, "/")
+
+	//
+	if len(parts) != 2 {
+		return GithubRepository{}, fmt.Errorf("invalid repository format detected ('%s'), expected owner/repo", toParse)
+	}
+
+	//
+	return GithubRepository{parts[0], parts[1]}, nil
 }
 
 // GetSecret fetches a secret from the Kubernetes API
@@ -60,4 +136,234 @@ func GetConfigMap(ctx context.Context, c client.Client, namespace, name string) 
 		return nil, err
 	}
 	return configMap, nil
+}
+
+//
+//
+//
+
+type SecVar struct {
+	Value       []byte
+	HashOfValue uint32
+}
+
+func (r *SecVar) hashAsString() string {
+	return fmt.Sprint(r.HashOfValue)
+}
+
+func (r *SecVar) isSyncedFrom(conditions *[]metav1.Condition) bool {
+	condition := getSyncedStatusCondition(conditions)
+
+	// condition was never set, consider not synced
+	if condition == nil {
+		return false
+	}
+
+	// message must contain property associated value's hash
+	return condition.Message == r.hashAsString()
+}
+
+// Will define the Synced status from conditions, depending on if an error is passed as argument
+func (r *SecVar) defineSyncStatusFrom(instance metav1.Object, conditions *[]metav1.Condition, err error) {
+	if err == nil {
+		SetSyncedStatusCondition(instance, conditions, "True", r.hashAsString())
+	} else {
+		SetSyncedStatusCondition(instance, conditions, "False", err.Error())
+	}
+}
+
+func (r *SecVar) UpdateAgainstGithubApiAs(ctx context.Context, cli github.Client, asType GithubActionSecVarType, repo GithubRepository, ghPropName string) error {
+	switch asType {
+	case Variable:
+		return cli.CreateOrUpdateVariable(ctx, repo.Org, repo.Name, ghPropName, string(r.Value))
+	case Secret:
+		return cli.CreateOrUpdateSecret(ctx, repo.Org, repo.Name, ghPropName, r.Value)
+	default:
+		return fmt.Errorf("undefined behavior with GithubActionSecVarType type '%d'", asType)
+	}
+}
+
+//
+//
+//
+
+func fillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alpha1.GithubActionSecretsSync, dataBySync *SecVarsBySync) string {
+	// Process secrets
+	for _, secretRef := range instance.Spec.Secrets {
+		// Get Secret
+		secret, err := GetSecret(ctx, c, instance.Namespace, secretRef.SecretRef)
+		if err != nil {
+			return fmt.Sprintf("Failed to get secret '%s' in namespace '%s': %v", secretRef.SecretRef, instance.Namespace, err)
+		}
+
+		// checks for key
+		secretValue, exists := secret.Data[secretRef.Key]
+		if !exists {
+			return fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef)
+		}
+
+		//
+		githubSecretName := secretRef.GithubSecretName
+		if githubSecretName == "" {
+			githubSecretName = secretRef.Key
+		}
+
+		//
+		(*dataBySync)[Secret][instance.Name][githubSecretName] = SecVar{
+			Value:       secretValue,
+			HashOfValue: HashBytes(secretValue),
+		}
+	}
+
+	// Process variables
+	for _, configMapRef := range instance.Spec.Variables {
+		// Get Secret
+		configMap, err := GetConfigMap(ctx, c, instance.Namespace, configMapRef.ConfigMapRef)
+		if err != nil {
+			return fmt.Sprintf("Failed to get Config Map '%s' in namespace '%s': %v", configMapRef.ConfigMapRef, instance.Namespace, err)
+		}
+
+		// checks for key
+		configValue, exists := configMap.Data[configMapRef.Key]
+		if !exists {
+			return fmt.Sprintf("Key %s not found in config map %s", configMapRef.Key, configMapRef.ConfigMapRef)
+
+		}
+
+		//
+		githubVariableName := configMapRef.GithubVariableName
+		if githubVariableName == "" {
+			githubVariableName = configMapRef.Key
+		}
+
+		//
+		configValueAsBytes := []byte(configValue)
+		(*dataBySync)[Variable][instance.Name][githubVariableName] = SecVar{
+			Value:       configValueAsBytes,
+			HashOfValue: HashBytes(configValueAsBytes),
+		}
+	}
+
+	//
+	return ""
+}
+
+func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alpha1.GithubActionSecretsSync, dataBySync *SecVarsBySync) (Succeeded bool) {
+	failureMsg := fillSyncBuffer(ctx, c, instance, dataBySync)
+
+	if failureMsg != "" {
+		SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", failureMsg)
+		return (false)
+	}
+
+	return (true)
+}
+
+//
+//
+//
+
+func findGHPropertyStateConditions(states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string) *[]metav1.Condition {
+	for i, state := range *states {
+		if state.GithubPropertyName == githubPropertyName {
+			return &(*states)[i].Conditions
+		}
+	}
+	return nil
+}
+
+func isGHPropertyAlreadySynced(states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string, secvar SecVar) bool {
+	conditions := findGHPropertyStateConditions(states, githubPropertyName)
+
+	// if no conditions, means nothing has ever synced
+	if conditions == nil {
+		return false
+	}
+
+	//
+	return secvar.isSyncedFrom(conditions)
+}
+
+//
+//
+//
+
+func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string, secvar SecVar, err error) {
+	conditions := findGHPropertyStateConditions(states, githubPropertyName)
+	secvar.defineSyncStatusFrom(instance, conditions, err)
+}
+
+//
+//
+//
+
+// TODO: handle timeouts, requeue with "return ctrl.Result{RequeueAfter: time.Minute}, nil" ?
+func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Client, toApplyTo []qalisav1alpha1.GithubSyncRepo, secVarsToSync SecVarsBySync) (ctrl.Result, error) {
+	//
+	//
+	//
+	var ghPropsSyncStateDict *[]qalisav1alpha1.GithubPropertySyncState
+
+	//
+	//
+	// for each repository to sync...
+	for _, repoCRD := range toApplyTo {
+		//
+		// Parse repo
+		//
+		repo, err := ParseRepository(repoCRD)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		//
+		//
+		// handle SECRETS bucket...
+		ghPropsSyncStateDict = &repoCRD.Status.SecretsSyncStates
+		for _, secretsBucket := range secVarsToSync[Secret] {
+			//
+
+			// for each secret...
+			for githubSecretName, secVar := range secretsBucket {
+				// try to find if already synced
+				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubSecretName, secVar) {
+					continue
+				}
+
+				// if not, try to update w/ Github API
+				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Secret, repo, githubSecretName)
+
+				// whatever the result, define sync state
+				defineGHPropertySyncStatus(&repoCRD, ghPropsSyncStateDict, githubSecretName, secVar, err)
+			}
+		}
+
+		//
+		//
+		// handle VARIABLES bucket...
+		ghPropsSyncStateDict = &repoCRD.Status.VariablesSyncStates
+		for _, variableBucket := range secVarsToSync[Variable] {
+			// for each variable...
+			for githubVariableName, secVar := range variableBucket {
+				// try to find if already synced
+				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubVariableName, secVar) {
+					continue
+				}
+
+				// if not, try to update w/ Github API
+				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Variable, repo, githubVariableName)
+
+				// whatever the result, define sync state
+				defineGHPropertySyncStatus(&repoCRD, ghPropsSyncStateDict, githubVariableName, secVar, err)
+			}
+		}
+
+		// now, try to update status
+		if err := cli.Status().Update(ctx, &repoCRD); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	//
+	return ctrl.Result{}, nil
 }

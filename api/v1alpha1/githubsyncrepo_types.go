@@ -39,31 +39,26 @@ type GithubSyncRepoSpec struct {
 //
 //
 
-type VariableSyncState struct {
+type GithubPropertySyncState struct {
 	// Conditions represent the latest available observations of the sync state
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// GitHub Variable
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	GithubVariableName string `json:"githubVariableName"`
-}
-type SecretSyncState struct {
-	// Conditions represent the latest available observations of the sync state
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// GitHub Variable
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	GithubSecretName string `json:"githubSecretName"`
+	GithubPropertyName string `json:"githubPropertyName"`
 }
 
 // GithubActionSecretsSyncStatus defines the observed state of GithubActionSecretsSync
 type GithubSyncRepoStatus struct {
 	// +optional
-	VariablesSyncStates []VariableSyncState `json:"variablesSyncStates,omitempty"`
+	VariablesSyncStates []GithubPropertySyncState `json:"variablesSyncStates,omitempty"`
 	// +optional
-	SecretsSyncStates []SecretSyncState `json:"secretsSyncStates,omitempty"`
+	SecretsSyncStates []GithubPropertySyncState `json:"secretsSyncStates,omitempty"`
+
+	// Conditions represent the latest available observations of the sync state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,9 +32,7 @@ type GithubSyncRepoReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if !r.RWMutex.TryLock() {
-		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
-	}
+	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
 	//
@@ -46,10 +43,13 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		// Do not exist anymore ?
 		if errors.IsNotFound(err) {
+			//
+			// TODO: HANDLE DELETION of resource
+			//
 			return ctrl.Result{}, nil
 		}
 
-		// any other kind of error
+		// any other kind of error. Would immediately schedule requeue because of err is set
 		return ctrl.Result{}, err
 	}
 
@@ -59,7 +59,8 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	_, err := utils.ParseRepository(*instance)
 	if err != nil {
-		return ctrl.Result{}, err
+		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+		return ctrl.Result{}, nil
 	}
 
 	//
@@ -74,8 +75,8 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	for _, name := range instance.Spec.SecretsSyncRefs {
 		// find with refd name
 		if err := r.List(ctx, &tempSyncConfigs, client.MatchingFields{"metadata.name": name}); err != nil {
-			// Handle the error
-			return ctrl.Result{}, err
+			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+			return ctrl.Result{}, nil
 		}
 
 		// if not finding exactly 1 ref
@@ -96,8 +97,8 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	dataBySync := utils.SecVarsBySync{}
 	for _, sync := range concernedSyncConfigs {
-		success := utils.FillSyncBuffer(ctx, r.Client, &sync, &dataBySync)
-		if !success {
+		if err := utils.FillSyncBuffer(ctx, r.Client, &sync, &dataBySync); err != nil {
+			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
 			return ctrl.Result{}, nil
 		}
 	}

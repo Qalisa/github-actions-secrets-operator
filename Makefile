@@ -132,7 +132,7 @@ uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/conf
 	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/operator/crds/
 
 .PHONY: deploy-without-image
-deploy-without-image: kind-create install-crds
+deploy-without-image: kind-create generate-crds install-crds
 
 .PHONY: deploy
 deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.

@@ -187,19 +187,19 @@ func (r *SecVar) UpdateAgainstGithubApiAs(ctx context.Context, cli github.Client
 //
 //
 
-func fillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alpha1.GithubActionSecretsSync, dataBySync *SecVarsBySync) string {
+func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alpha1.GithubActionSecretsSync, dataBySync *SecVarsBySync) error {
 	// Process secrets
 	for _, secretRef := range instance.Spec.Secrets {
 		// Get Secret
 		secret, err := GetSecret(ctx, c, instance.Namespace, secretRef.SecretRef)
 		if err != nil {
-			return fmt.Sprintf("Failed to get secret '%s' in namespace '%s': %v", secretRef.SecretRef, instance.Namespace, err)
+			return fmt.Errorf("failed to get secret '%s' in namespace '%s': %v", secretRef.SecretRef, instance.Namespace, err)
 		}
 
 		// checks for key
 		secretValue, exists := secret.Data[secretRef.Key]
 		if !exists {
-			return fmt.Sprintf("Key %s not found in secret %s", secretRef.Key, secretRef.SecretRef)
+			return fmt.Errorf("key %s not found in secret %s", secretRef.Key, secretRef.SecretRef)
 		}
 
 		//
@@ -220,13 +220,13 @@ func fillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 		// Get Secret
 		configMap, err := GetConfigMap(ctx, c, instance.Namespace, configMapRef.ConfigMapRef)
 		if err != nil {
-			return fmt.Sprintf("Failed to get Config Map '%s' in namespace '%s': %v", configMapRef.ConfigMapRef, instance.Namespace, err)
+			return fmt.Errorf("failed to get Config Map '%s' in namespace '%s': %v", configMapRef.ConfigMapRef, instance.Namespace, err)
 		}
 
 		// checks for key
 		configValue, exists := configMap.Data[configMapRef.Key]
 		if !exists {
-			return fmt.Sprintf("Key %s not found in config map %s", configMapRef.Key, configMapRef.ConfigMapRef)
+			return fmt.Errorf("key %s not found in config map %s", configMapRef.Key, configMapRef.ConfigMapRef)
 
 		}
 
@@ -245,18 +245,7 @@ func fillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 	}
 
 	//
-	return ""
-}
-
-func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alpha1.GithubActionSecretsSync, dataBySync *SecVarsBySync) (Succeeded bool) {
-	failureMsg := fillSyncBuffer(ctx, c, instance, dataBySync)
-
-	if failureMsg != "" {
-		SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", failureMsg)
-		return (false)
-	}
-
-	return (true)
+	return nil
 }
 
 //
@@ -309,11 +298,13 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 	// for each repository to sync...
 	for _, repoCRD := range toApplyTo {
 		//
-		// Parse repo
+		// Try to parse repo
 		//
 		repo, err := ParseRepository(repoCRD)
 		if err != nil {
-			return ctrl.Result{}, err
+			SetSyncedStatusCondition(&repoCRD, &repoCRD.Status.Conditions, "False", err.Error())
+			// if failed, skip syncing alltogether
+			goto doRegisterStatus
 		}
 
 		//
@@ -358,8 +349,10 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 			}
 		}
 
+	doRegisterStatus:
 		// now, try to update status
 		if err := cli.Status().Update(ctx, &repoCRD); err != nil {
+			// Kind of anormal error; Would immediately schedule requeue because of err is set
 			return ctrl.Result{}, err
 		}
 	}

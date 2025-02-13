@@ -5,7 +5,6 @@ package controller
 import (
 	"context"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,9 +31,7 @@ type GithubActionSecretsSyncReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if !r.RWMutex.TryLock() {
-		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
-	}
+	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
 	//
@@ -45,10 +42,13 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		// Do not exist anymore ?
 		if errors.IsNotFound(err) {
+			//
+			// TODO: HANDLE DELETION of resource
+			//
 			return ctrl.Result{}, nil
 		}
 
-		// any other kind of error
+		// any other kind of error, which is alarming. Would immediately schedule requeue because of err is set
 		return ctrl.Result{}, err
 	}
 
@@ -57,8 +57,8 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	//
 
 	dataBySync := utils.SecVarsBySync{}
-	success := utils.FillSyncBuffer(ctx, r.Client, instance, &dataBySync)
-	if !success {
+	if err := utils.FillSyncBuffer(ctx, r.Client, instance, &dataBySync); err != nil {
+		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
 		return ctrl.Result{}, nil
 	}
 
@@ -72,8 +72,8 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 
 	// List all resources of the specified type
 	if err := r.List(ctx, &allRepoConfigs, &client.ListOptions{}); err != nil {
-		// Handle the error
-		return ctrl.Result{}, err
+		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+		return ctrl.Result{}, nil
 	}
 
 	for _, repo := range allRepoConfigs.Items {

@@ -66,7 +66,7 @@ type GithubSyncRepoStatus struct {
 //
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Repository",type="string",JSONPath=".spec.repository"
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"

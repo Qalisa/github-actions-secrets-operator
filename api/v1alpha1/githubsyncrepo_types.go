@@ -35,18 +35,40 @@ type GithubSyncRepoSpec struct {
 	SecretsSyncRefs []string `json:"secretsSyncRefs,omitempty"`
 }
 
-// GithubSyncRepoStatus defines the observed state of GithubSyncRepo
-type GithubSyncRepoStatus struct {
-	// LastSyncTime is the last time the secrets were synced to this repository
-	// +optional
-	LastSyncTime *metav1.Time `json:"lastSyncTime,omitempty"`
+//
+//
+//
+
+type VariableSyncState struct {
 	// Conditions represent the latest available observations of the sync state
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// ErrorMessage contains the last error message if sync failed
-	// +optional
-	ErrorMessage string `json:"errorMessage,omitempty"`
+	// GitHub Variable
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	GithubVariableName string `json:"githubVariableName"`
 }
+type SecretSyncState struct {
+	// Conditions represent the latest available observations of the sync state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// GitHub Variable
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	GithubSecretName string `json:"githubSecretName"`
+}
+
+// GithubActionSecretsSyncStatus defines the observed state of GithubActionSecretsSync
+type GithubSyncRepoStatus struct {
+	// +optional
+	VariablesSyncStates []VariableSyncState `json:"variablesSyncStates,omitempty"`
+	// +optional
+	SecretsSyncStates []SecretSyncState `json:"secretsSyncStates,omitempty"`
+}
+
+//
+//
+//
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster

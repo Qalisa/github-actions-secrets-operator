@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -232,10 +233,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	mutex := sync.RWMutex{}
+
 	if err = (&controller.GithubActionSecretsSyncReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		GitHubClient: githubClient,
+		RWMutex:      &mutex,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GithubActionSecretsSync")
 		os.Exit(1)
@@ -245,6 +249,7 @@ func main() {
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		GitHubClient: githubClient,
+		RWMutex:      &mutex,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GithubSyncRepo")
 		os.Exit(1)

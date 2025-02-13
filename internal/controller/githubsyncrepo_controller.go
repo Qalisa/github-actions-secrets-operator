@@ -5,6 +5,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,7 +20,8 @@ import (
 
 type GithubSyncRepoReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
+	*runtime.Scheme
+	*sync.RWMutex
 	GitHubClient github.Client
 }
 
@@ -29,8 +32,11 @@ type GithubSyncRepoReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
-// TODO: use mutex
 func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if !r.RWMutex.TryLock() {
+		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+	}
+	defer r.RWMutex.Unlock()
 
 	//
 	// try to get instance of CRD

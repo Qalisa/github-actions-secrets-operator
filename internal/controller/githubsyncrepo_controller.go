@@ -35,11 +35,11 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		fmt.Printf("Recovered from panic: %v\n", r)
-	// 	}
-	// }()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic: %v\n", r)
+		}
+	}()
 
 	//
 	//
@@ -48,7 +48,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var syncErr error
 	var result ctrl.Result
 	instance := &qalisav1alpha1.GithubSyncRepo{}
-	toApplyTo := []qalisav1alpha1.GithubSyncRepo{*instance}
+	toApplyTo := []*qalisav1alpha1.GithubSyncRepo{instance}
 	var dataBySync utils.SecVarsBySync
 	var concernedSyncConfigs []qalisav1alpha1.GithubActionSecretsSync
 	var tempSyncConfigs qalisav1alpha1.GithubActionSecretsSyncList
@@ -87,7 +87,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// List all resources with specific names
 	for _, name := range instance.Spec.SecretsSyncRefs {
 		// find with refd name
-		if err := r.List(ctx, &tempSyncConfigs, client.MatchingFields{"metadata.name": name}); err != nil {
+		if err := r.List(ctx, &tempSyncConfigs, client.MatchingFields{indexFieldName: name}); err != nil {
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
 			goto doRegisterStatus
 		}
@@ -139,13 +139,23 @@ doRegisterStatus:
 	return result, syncErr
 }
 
+//
+//
+//
+
+const indexFieldName = "metadata.name"
+
 func (r *GithubSyncRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// ✅ Add the field index for "metadata.name"
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &qalisav1alpha1.GithubSyncRepo{}, "metadata.name", func(rawObj client.Object) []string {
-		obj := rawObj.(*qalisav1alpha1.GithubSyncRepo) // Type assertion
-		return []string{obj.Name}                      // Index by Name
-	}); err != nil {
-		return err
+	// Set up the index
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&qalisav1alpha1.GithubActionSecretsSync{},
+		indexFieldName,
+		func(obj client.Object) []string {
+			return []string{obj.GetName()}
+		},
+	); err != nil {
+		// handle error
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

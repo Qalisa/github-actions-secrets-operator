@@ -164,11 +164,13 @@ func (r *SecVar) isSyncedFrom(conditions *[]metav1.Condition) bool {
 }
 
 // Will define the Synced status from conditions, depending on if an error is passed as argument
-func (r *SecVar) defineSyncStatusFrom(instance metav1.Object, conditions *[]metav1.Condition, err error) {
+func (r *SecVar) defineSyncStatusFrom(instance metav1.Object, conditions *[]metav1.Condition, err error, syncAttempts *SyncAttempts) {
 	if err == nil {
 		SetSyncedStatusCondition(instance, conditions, "True", r.hashAsString())
+		syncAttempts.BumpSuccessful()
 	} else {
 		SetSyncedStatusCondition(instance, conditions, "False", err.Error())
+		syncAttempts.BumpFailed()
 	}
 }
 
@@ -298,7 +300,7 @@ func isGHPropertyAlreadySynced(states *[]qalisav1alpha1.GithubPropertySyncState,
 //
 //
 
-func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string, secvar SecVar, err error) {
+func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string, secvar SecVar, err error, syncAttempts *SyncAttempts) {
 	conditions := findGHPropertyStateConditions(states, githubPropertyName)
 
 	// means we need to create
@@ -312,7 +314,7 @@ func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1
 		conditions = findGHPropertyStateConditions(states, githubPropertyName)
 	}
 
-	secvar.defineSyncStatusFrom(instance, conditions, err)
+	secvar.defineSyncStatusFrom(instance, conditions, err, syncAttempts)
 }
 
 //
@@ -320,7 +322,7 @@ func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1
 //
 
 // TODO: handle timeouts, requeue with "return ctrl.Result{RequeueAfter: time.Minute}, nil" ?
-func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Client, toApplyTo []qalisav1alpha1.GithubSyncRepo, secVarsToSync SecVarsBySync) (ctrl.Result, error) {
+func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Client, toApplyTo []*qalisav1alpha1.GithubSyncRepo, secVarsToSync SecVarsBySync) (ctrl.Result, error) {
 	//
 	//
 	//
@@ -331,11 +333,16 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 	// for each repository to sync...
 	for _, repoCRD := range toApplyTo {
 		//
+		var secAttempts SyncAttempts
+		var varAttempts SyncAttempts
+		var resultStatsStr string
+
+		//
 		// Try to parse repo
 		//
-		repo, err := ParseRepository(repoCRD)
+		repo, err := ParseRepository(*repoCRD)
 		if err != nil {
-			SetSyncedStatusCondition(&repoCRD, &repoCRD.Status.Conditions, "False", err.Error())
+			SetSyncedStatusCondition(repoCRD, &repoCRD.Status.Conditions, "False", err.Error())
 			// if failed, skip syncing alltogether
 			goto doRegisterStatus
 		}
@@ -345,12 +352,13 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 		// handle SECRETS bucket...
 		ghPropsSyncStateDict = &repoCRD.Status.SecretsSyncStates
 		for _, secretsBucket := range secVarsToSync[Secret] {
-			//
-
 			// for each secret...
 			for githubSecretName, secVar := range secretsBucket {
+				secAttempts.BumpTotal()
+
 				// try to find if already synced
 				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubSecretName, secVar) {
+					secAttempts.BumpNotNeeded()
 					continue
 				}
 
@@ -358,7 +366,7 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Secret, repo, githubSecretName)
 
 				// whatever the result, define sync state
-				defineGHPropertySyncStatus(&repoCRD, ghPropsSyncStateDict, githubSecretName, secVar, err)
+				defineGHPropertySyncStatus(repoCRD, ghPropsSyncStateDict, githubSecretName, secVar, err, &secAttempts)
 			}
 		}
 
@@ -369,8 +377,11 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 		for _, variableBucket := range secVarsToSync[Variable] {
 			// for each variable...
 			for githubVariableName, secVar := range variableBucket {
+				varAttempts.BumpTotal()
+
 				// try to find if already synced
 				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubVariableName, secVar) {
+					secAttempts.BumpNotNeeded()
 					continue
 				}
 
@@ -378,13 +389,34 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Variable, repo, githubVariableName)
 
 				// whatever the result, define sync state
-				defineGHPropertySyncStatus(&repoCRD, ghPropsSyncStateDict, githubVariableName, secVar, err)
+				defineGHPropertySyncStatus(repoCRD, ghPropsSyncStateDict, githubVariableName, secVar, err, &varAttempts)
 			}
 		}
 
+		//
+		//
+		//
+
+		//
+		resultStatsStr = fmt.Sprintf(
+			"(%d/%d variables OK | %d/%d secrets OK)",
+			varAttempts.DoneOrDidSuccess(), varAttempts.Total(),
+			secAttempts.DoneOrDidSuccess(), secAttempts.Total(),
+		)
+
+		if varAttempts.HasFailed() || secAttempts.HasFailed() {
+			SetSyncedStatusCondition(repoCRD, &repoCRD.Status.Conditions, "False", fmt.Sprintf("Some synchronizations failed %s", resultStatsStr))
+		} else {
+			SetSyncedStatusCondition(repoCRD, &repoCRD.Status.Conditions, "True", fmt.Sprintf("All properties synced %s", resultStatsStr))
+		}
+
+		//
+		//
+		//
+
 	doRegisterStatus:
 		// now, try to update status
-		if err := cli.Status().Update(ctx, &repoCRD); err != nil {
+		if err := cli.Status().Update(ctx, repoCRD); err != nil {
 			// Kind of anormal error; Would immediately schedule requeue because of err is set
 			return ctrl.Result{}, err
 		}

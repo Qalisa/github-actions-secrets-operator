@@ -4,6 +4,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,11 +35,11 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		fmt.Printf("Recovered from panic: %v\n", r)
-	// 	}
-	// }()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic: %v\n", r)
+		}
+	}()
 
 	//
 	//
@@ -48,7 +49,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	var result ctrl.Result
 	var dataBySync utils.SecVarsBySync
 	var allRepoConfigs qalisav1alpha1.GithubSyncRepoList
-	var toApplyTo []qalisav1alpha1.GithubSyncRepo
+	var toApplyTo []*qalisav1alpha1.GithubSyncRepo
 
 	//
 	// Try to get instance of CRD
@@ -89,7 +90,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 
 	for _, repo := range allRepoConfigs.Items {
 		if utils.Contains(repo.Spec.SecretsSyncRefs, instance.Name) {
-			toApplyTo = append(toApplyTo, repo)
+			toApplyTo = append(toApplyTo, &repo)
 		}
 	}
 

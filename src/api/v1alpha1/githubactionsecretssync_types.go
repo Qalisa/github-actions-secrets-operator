@@ -20,15 +20,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ResourceRef struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace,omitempty"`
+}
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SecretRef defines a reference to a Kubernetes Secret and how to map it to a GitHub Secret
 type SecretRef struct {
 	// SecretRef is the name of the Kubernetes Secret containing the value
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	SecretRef string `json:"secretRef"`
+	SecretRef ResourceRef `json:"secretRef"`
 	// Key is the key in the Kubernetes Secret to use
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -41,9 +48,7 @@ type SecretRef struct {
 // VariableRef defines a reference to a Kubernetes ConfigMap and how to map it to a GitHub Variable
 type VariableRef struct {
 	// ConfigMapRef is the name of the Kubernetes ConfigMap containing the value
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ConfigMapRef string `json:"configMapRef"`
+	ConfigMapRef ResourceRef `json:"configMapRef"`
 	// Key is the key in the Kubernetes ConfigMap to use
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -77,7 +82,7 @@ type GithubActionSecretsSyncStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Synced",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
 // +kubebuilder:printcolumn:name="Last Sync",type="date",JSONPath=".status.lastSyncTime"

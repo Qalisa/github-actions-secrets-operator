@@ -1,0 +1,19 @@
+apiVersion: qalisa.github.io/v1alpha1
+kind: GithubActionSecretsSync
+metadata:
+  name: default
+spec:
+  secrets:
+    - secretRef: 
+        name: gh-action
+        namespace: gh-secret-operator
+      key: TEST_API_KEY
+    - secretRef:
+        name: gh-action
+        namespace: gh-secret-operator
+      key: TEST_DB_PASSWORD
+  variables:
+    - configMapRef:
+        name: gh-action
+        namespace: gh-secret-operator
+      key: TEST_API_URL

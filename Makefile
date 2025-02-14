@@ -58,13 +58,16 @@ lint: ## Run golangci-lint
 
 ##@ Development
 
+.PHONY: generate-all
+generate-all: generate-helpers generate-crds
+
 .PHONY: generate-crds
 generate-crds: controller-gen ## Generate CRDs (only run this when API changes)
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="src/..." output:crd:artifacts:config=helm-charts/push-github-secrets-operator/crds
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./src/..." output:crd:artifacts:config=helm-charts/push-github-secrets-operator/crds
 
-.PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="src/hack/boilerplate.go.txt" paths="src/..."
+.PHONY: generate-helpers
+generate-helpers: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	$(CONTROLLER_GEN) object:headerFile="./src/hack/boilerplate.go.txt" paths="./src/..."
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -132,7 +135,7 @@ uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/conf
 	kubectl delete --ignore-not-found=$(ignore-not-found) -f helm-charts/push-github-secrets-operator/crds/
 
 .PHONY: deploy-without-image
-deploy-without-image: kind-create generate-crds install-crds
+deploy-without-image: kind-create generate-all install-crds
 
 .PHONY: deploy
 deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
@@ -184,7 +187,4 @@ helm-docs: ## Generate Helm chart documentation
 
 .PHONY: apply-samples
 apply-samples: ## Apply sample CRDs to the cluster
-	kubectl apply -f config/samples/ns.yaml
-	kubectl apply -f config/samples/secret.gh-action.yaml
-	kubectl apply -f config/samples/gass.default.yaml
-	kubectl apply -f config/samples/gsr.qalisa-vitrine.yaml
+	kubectl apply -f config/samples/

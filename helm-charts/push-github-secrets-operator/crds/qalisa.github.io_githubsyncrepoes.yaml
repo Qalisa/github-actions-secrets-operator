@@ -12,7 +12,7 @@ spec:
     listKind: GithubSyncRepoList
     plural: githubsyncrepoes
     singular: githubsyncrepo
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.repository

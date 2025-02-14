@@ -119,9 +119,9 @@ func ParseRepository(repository qalisav1alpha1.GithubSyncRepo) (GithubRepository
 }
 
 // GetSecret fetches a secret from the Kubernetes API
-func GetSecret(ctx context.Context, c client.Client, namespace, name string) (*corev1.Secret, error) {
+func GetSecret(ctx context.Context, c client.Client, ref qalisav1alpha1.ResourceRef) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
-	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret)
+	err := c.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ref.Namespace}, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +129,9 @@ func GetSecret(ctx context.Context, c client.Client, namespace, name string) (*c
 }
 
 // GetConfigMap fetches a configmap from the Kubernetes API
-func GetConfigMap(ctx context.Context, c client.Client, namespace, name string) (*corev1.ConfigMap, error) {
+func GetConfigMap(ctx context.Context, c client.Client, ref qalisav1alpha1.ResourceRef) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{}
-	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, configMap)
+	err := c.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ref.Namespace}, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 	// Process secrets
 	for _, secretRef := range instance.Spec.Secrets {
 		// Get Secret
-		secret, err := GetSecret(ctx, c, instance.Namespace, secretRef.SecretRef)
+		secret, err := GetSecret(ctx, c, secretRef.SecretRef)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s' in namespace '%s': %v", secretRef.SecretRef, instance.Namespace, err)
 		}
@@ -220,7 +220,7 @@ func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 	// Process variables
 	for _, configMapRef := range instance.Spec.Variables {
 		// Get Secret
-		configMap, err := GetConfigMap(ctx, c, instance.Namespace, configMapRef.ConfigMapRef)
+		configMap, err := GetConfigMap(ctx, c, configMapRef.ConfigMapRef)
 		if err != nil {
 			return fmt.Errorf("failed to get Config Map '%s' in namespace '%s': %v", configMapRef.ConfigMapRef, instance.Namespace, err)
 		}

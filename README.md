@@ -143,29 +143,6 @@ git clone https://github.com/Qalisa/push-github-secrets-operator.git
 cd push-github-secrets-operator
 ```
 
-2. Set up development environment:
-   ```bash
-   # Using VSCode Command Palette (Cmd/Ctrl + Shift + P):
-   > Tasks: Run Task > Setup Development Environment
-   ```
-
-3. Start local development:
-   ```bash
-   # Using VSCode Command Palette:
-   > Tasks: Run Task > Start Development Environment
-   ```
-
-This will create a local Kind cluster and deploy the operator for testing.
-
-### Available Tasks
-
-- Run tests: `Tasks: Run Task > Run Unit Tests`
-- Run E2E tests: `Tasks: Run Task > Run E2E Tests`
-- Run linter: `Tasks: Run Task > Run Linter`
-- Generate test coverage: `Tasks: Run Task > Generate Test Coverage`
-
-See the [Development Guide](docs/development.md) for complete documentation.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

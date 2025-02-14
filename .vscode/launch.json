@@ -6,7 +6,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/main.go",
+            "program": "${workspaceFolder}/src/cmd/main.go",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/src",
             "env": {

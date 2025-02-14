@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: gh-action
   namespace: gh-secret-operator
-stringData:
-  API_URL: "http://dummy.com/api"
+data:
+  TEST_API_URL: "http://dummy.com/api"

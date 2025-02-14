@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     #tags: ['v*']
+    branches:
+      - main
 
 env:
   REGISTRY: ghcr.io
@@ -65,10 +67,6 @@ jobs:
         with:
           fetch-depth: 0
       
-      - uses: azure/setup-helm@v3
-        with:
-          version: ${{ env.HELM_VERSION }}
-      
       - name: Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
@@ -77,32 +75,7 @@ jobs:
       - name: Update Helm documentation
         run: make helm-docs
       
-      - name: Package Helm chart
-        run: |
-          helm package helm-charts/push-github-secrets-operator \
-            --app-version ${GITHUB_REF#refs/tags/} \
-            --version ${GITHUB_REF#refs/tags/v} \
-            --destination .cr-release-packages
-      
-      - uses: actions/upload-artifact@v4
-        with:
-          name: helm-chart
-          path: .cr-release-packages/*.tgz
-
-  create-release:
-    needs: [build-and-push, publish-helm-chart]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: helm-chart
-          path: dist
-      
-      - uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*.tgz
-          generate_release_notes: true
-          body: |
-            Docker image: ${{ needs.build-and-push.outputs.image_tag }}
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

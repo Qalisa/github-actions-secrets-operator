@@ -8,12 +8,12 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main.go",
             "console": "internalConsole",
-            
+            "cwd": "${workspaceFolder}/src",
             "env": {
                 "KUBECONFIG": "${env:HOME}/.kube/config",
-                "GITHUB_PRIVATE_KEY_PATH": "${workspaceFolder}/github-privateKey.pem"
+                "GITHUB_PRIVATE_KEY_PATH": "${workspaceFolder}/src/github-privateKey.pem"
             },
-            "envFile": "${workspaceFolder}/.env",
+            "envFile": "${workspaceFolder}/src/.env",
             "preLaunchTask": "👵⚙️ 1b. Prepare Kind for Controller debugging",
         },
     ]

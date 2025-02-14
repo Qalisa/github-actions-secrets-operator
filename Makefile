@@ -54,13 +54,13 @@ install-tools: ## Install required tools using brew
 
 .PHONY: lint
 lint: ## Run golangci-lint
-	golangci-lint run
+	cd src && golangci-lint run
 
 ##@ Development
 
 .PHONY: generate-crds
 generate-crds: controller-gen ## Generate CRDs (only run this when API changes)
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=charts/operator/crds
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=helm/push-github-secrets-operator/crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -125,11 +125,11 @@ endif
 
 .PHONY: install-crds
 install-crds: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	kubectl apply -f charts/operator/crds/
+	kubectl apply -f helm/push-github-secrets-operator/crds/
 
 .PHONY: uninstall-crds
 uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/operator/crds/
+	kubectl delete --ignore-not-found=$(ignore-not-found) -f helm/push-github-secrets-operator/crds/
 
 .PHONY: deploy-without-image
 deploy-without-image: kind-create generate-crds install-crds

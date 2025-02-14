@@ -77,7 +77,7 @@ make deploy
 Note: If you make changes to the API (in api/v1alpha1/), you'll need to regenerate the CRDs:
 ```bash
 make generate-crds
-git add charts/operator/crds/
+git add helm/push-github-secrets-operator/crds/
 git commit -m "Update CRDs"
 ```
 

@@ -399,7 +399,7 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 
 		//
 		resultStatsStr = fmt.Sprintf(
-			"(%d/%d variables OK | %d/%d secrets OK)",
+			"(Synced: %d/%d variables | %d/%d secrets)",
 			varAttempts.DoneOrDidSuccess(), varAttempts.Total(),
 			secAttempts.DoneOrDidSuccess(), secAttempts.Total(),
 		)

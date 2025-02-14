@@ -4,6 +4,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,16 +24,32 @@ type GithubActionSecretsSyncReconciler struct {
 	GitHubClient github.Client
 }
 
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubsyncrepoes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubactionsecretssyncs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubactionsecretssyncs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubactionsecretssyncs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubsyncrepoes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic: %v\n", r)
+		}
+	}()
+
+	//
+	//
+	//
+
+	var syncErr error
+	var result ctrl.Result
+	var dataBySync utils.SecVarsBySync
+	var allRepoConfigs qalisav1alpha1.GithubSyncRepoList
+	var toApplyTo []qalisav1alpha1.GithubSyncRepo
 
 	//
 	// Try to get instance of CRD
@@ -45,7 +62,7 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 			//
 			// TODO: HANDLE DELETION of resource
 			//
-			return ctrl.Result{}, nil
+			goto doRegisterStatus
 		}
 
 		// any other kind of error, which is alarming. Would immediately schedule requeue because of err is set
@@ -56,24 +73,19 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	// Fill sync buffer
 	//
 
-	dataBySync := utils.SecVarsBySync{}
 	if err := utils.FillSyncBuffer(ctx, r.Client, instance, &dataBySync); err != nil {
 		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
-		return ctrl.Result{}, nil
+		goto doRegisterStatus
 	}
 
 	//
 	// Filter from all repo configs which that are concerned
 	//
 
-	// Initialize the list of resources
-	var allRepoConfigs qalisav1alpha1.GithubSyncRepoList
-	var toApplyTo []qalisav1alpha1.GithubSyncRepo
-
 	// List all resources of the specified type
 	if err := r.List(ctx, &allRepoConfigs, &client.ListOptions{}); err != nil {
 		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
-		return ctrl.Result{}, nil
+		goto doRegisterStatus
 	}
 
 	for _, repo := range allRepoConfigs.Items {
@@ -86,7 +98,21 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	//
 	//
 
-	return utils.SynchronizeToGithub(ctx, r.Client, r.GitHubClient, toApplyTo, dataBySync)
+	result, syncErr = utils.SynchronizeToGithub(ctx, r.Client, r.GitHubClient, toApplyTo, dataBySync)
+
+	//
+	//
+	//
+
+doRegisterStatus:
+	// now, try to update this instance's status
+	if err := r.Client.Status().Update(ctx, instance); err != nil {
+		// Kind of anormal error; Would immediately schedule requeue because of err is set
+		return ctrl.Result{}, err
+	}
+
+	//
+	return result, syncErr
 }
 
 func (r *GithubActionSecretsSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -8,6 +8,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/main.go",
             "console": "internalConsole",
+            
             "env": {
                 "KUBECONFIG": "${env:HOME}/.kube/config",
                 "GITHUB_PRIVATE_KEY_PATH": "${workspaceFolder}/github-privateKey.pem"

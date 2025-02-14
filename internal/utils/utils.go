@@ -29,7 +29,7 @@ const (
 )
 
 // {Variable|Secret}:<GithubActionSecretsSync:name>:<{Variable|Secret}:gh-name>:(value&hash(value))
-type SecVarsBySync map[GithubActionSecVarType]map[string]map[string]SecVar
+type SecVarsBySync map[GithubActionSecVarType]map[types.NamespacedName]map[string]SecVar
 
 //
 //
@@ -209,10 +209,10 @@ func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 		}
 
 		//
-		(*dataBySync)[Secret][instance.Name][githubSecretName] = SecVar{
+		SetSecVar(dataBySync, Secret, instance.ObjectMeta, githubSecretName, SecVar{
 			Value:       secretValue,
 			HashOfValue: HashBytes(secretValue),
-		}
+		})
 	}
 
 	// Process variables
@@ -238,14 +238,35 @@ func FillSyncBuffer(ctx context.Context, c client.Client, instance *qalisav1alph
 
 		//
 		configValueAsBytes := []byte(configValue)
-		(*dataBySync)[Variable][instance.Name][githubVariableName] = SecVar{
+		SetSecVar(dataBySync, Variable, instance.ObjectMeta, githubVariableName, SecVar{
 			Value:       configValueAsBytes,
 			HashOfValue: HashBytes(configValueAsBytes),
-		}
+		})
 	}
 
 	//
 	return nil
+}
+
+// SetSecVar safely initializes the nested maps and sets the SecVar value.
+func SetSecVar(svs *SecVarsBySync, secVarType GithubActionSecVarType, source metav1.ObjectMeta, ghPropertyName string, secVar SecVar) {
+	if *svs == nil {
+		*svs = make(SecVarsBySync) // Ensure the outer map is initialized
+	}
+
+	// Ensure the first-level map is initialized
+	if (*svs)[secVarType] == nil {
+		(*svs)[secVarType] = make(map[types.NamespacedName]map[string]SecVar)
+	}
+
+	// Ensure the second-level map is initialized
+	nsName := types.NamespacedName{Namespace: source.Namespace, Name: source.Name}
+	if (*svs)[secVarType][nsName] == nil {
+		(*svs)[secVarType][nsName] = make(map[string]SecVar)
+	}
+
+	// Assign the value
+	(*svs)[secVarType][nsName][ghPropertyName] = secVar
 }
 
 //
@@ -279,6 +300,18 @@ func isGHPropertyAlreadySynced(states *[]qalisav1alpha1.GithubPropertySyncState,
 
 func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1.GithubPropertySyncState, githubPropertyName string, secvar SecVar, err error) {
 	conditions := findGHPropertyStateConditions(states, githubPropertyName)
+
+	// means we need to create
+	if conditions == nil {
+		*states = append(*states, qalisav1alpha1.GithubPropertySyncState{
+			GithubPropertyName: githubPropertyName,
+			Conditions:         []metav1.Condition{},
+		})
+
+		//
+		conditions = findGHPropertyStateConditions(states, githubPropertyName)
+	}
+
 	secvar.defineSyncStatusFrom(instance, conditions, err)
 }
 

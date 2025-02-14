@@ -1,4 +1,4 @@
-apiVersion: qalisa.qalisa.github.io/v1alpha1
+apiVersion: qalisa.github.io/v1alpha1
 kind: GithubActionSecretsSync
 metadata:
   name: default

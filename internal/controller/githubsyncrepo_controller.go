@@ -24,10 +24,10 @@ type GithubSyncRepoReconciler struct {
 	GitHubClient github.Client
 }
 
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubsyncrepoes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubsyncrepoes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubsyncrepoes/finalizers,verbs=update
-// +kubebuilder:rbac:groups=qalisa.qalisa.github.io,resources=githubactionsecretssyncs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubsyncrepoes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubsyncrepoes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubsyncrepoes/finalizers,verbs=update
+// +kubebuilder:rbac:groups=qalisa.github.io,resources=githubactionsecretssyncs,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
@@ -35,18 +35,36 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic: %v\n", r)
+		}
+	}()
+
+	//
+	//
+	//
+
+	var syncErr error
+	var result ctrl.Result
+	instance := &qalisav1alpha1.GithubSyncRepo{}
+	toApplyTo := []qalisav1alpha1.GithubSyncRepo{*instance}
+	var dataBySync utils.SecVarsBySync
+	var concernedSyncConfigs []qalisav1alpha1.GithubActionSecretsSync
+	var tempSyncConfigs qalisav1alpha1.GithubActionSecretsSyncList
+	reachedSync := false
+
 	//
 	// try to get instance of CRD
 	//
 
-	instance := &qalisav1alpha1.GithubSyncRepo{}
 	if err := r.Get(ctx, req.NamespacedName, instance); err != nil {
 		// Do not exist anymore ?
 		if errors.IsNotFound(err) {
 			//
 			// TODO: HANDLE DELETION of resource
 			//
-			return ctrl.Result{}, nil
+			goto doRegisterStatus
 		}
 
 		// any other kind of error. Would immediately schedule requeue because of err is set
@@ -57,26 +75,21 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// test parsing of repo name
 	//
 
-	_, err := utils.ParseRepository(*instance)
-	if err != nil {
+	if _, err := utils.ParseRepository(*instance); err != nil {
 		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
-		return ctrl.Result{}, nil
+		goto doRegisterStatus
 	}
 
 	//
 	// Find concerned Syncs
 	//
 
-	// Initialize the list of resources
-	var concernedSyncConfigs []qalisav1alpha1.GithubActionSecretsSync
-
 	// List all resources with specific names
-	var tempSyncConfigs qalisav1alpha1.GithubActionSecretsSyncList
 	for _, name := range instance.Spec.SecretsSyncRefs {
 		// find with refd name
 		if err := r.List(ctx, &tempSyncConfigs, client.MatchingFields{"metadata.name": name}); err != nil {
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
-			return ctrl.Result{}, nil
+			goto doRegisterStatus
 		}
 
 		// if not finding exactly 1 ref
@@ -84,7 +97,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if found != 1 {
 			errMsg := fmt.Sprintf("Failed to find referenced GithubActionSecretsSync '%s' within cluster (found %d)", name, found)
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", errMsg)
-			return ctrl.Result{}, nil
+			goto doRegisterStatus
 		}
 
 		// append first to concerned
@@ -95,11 +108,10 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Fill sync buffer
 	//
 
-	dataBySync := utils.SecVarsBySync{}
 	for _, sync := range concernedSyncConfigs {
 		if err := utils.FillSyncBuffer(ctx, r.Client, &sync, &dataBySync); err != nil {
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
-			return ctrl.Result{}, nil
+			goto doRegisterStatus
 		}
 	}
 
@@ -107,11 +119,35 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	//
 	//
 
-	toApplyTo := []qalisav1alpha1.GithubSyncRepo{*instance}
-	return utils.SynchronizeToGithub(ctx, r.Client, r.GitHubClient, toApplyTo, dataBySync)
+	result, syncErr = utils.SynchronizeToGithub(ctx, r.Client, r.GitHubClient, toApplyTo, dataBySync)
+	reachedSync = true
+
+	//
+	//
+	//
+
+doRegisterStatus:
+	if !reachedSync {
+		// now, try to update this instance's status
+		if err := r.Client.Status().Update(ctx, instance); err != nil {
+			// Kind of anormal error; Would immediately schedule requeue because of err is set
+			return ctrl.Result{}, err
+		}
+	}
+
+	//
+	return result, syncErr
 }
 
 func (r *GithubSyncRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// ✅ Add the field index for "metadata.name"
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &qalisav1alpha1.GithubSyncRepo{}, "metadata.name", func(rawObj client.Object) []string {
+		obj := rawObj.(*qalisav1alpha1.GithubSyncRepo) // Type assertion
+		return []string{obj.Name}                      // Index by Name
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&qalisav1alpha1.GithubSyncRepo{}).
 		Named("githubsyncrepo").

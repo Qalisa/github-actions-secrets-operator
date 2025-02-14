@@ -14,7 +14,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - qalisa.qalisa.github.io
+  - qalisa.github.io
   resources:
   - githubactionsecretssyncs
   - githubsyncrepoes
@@ -27,14 +27,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - qalisa.qalisa.github.io
+  - qalisa.github.io
   resources:
   - githubactionsecretssyncs/finalizers
   - githubsyncrepoes/finalizers
   verbs:
   - update
 - apiGroups:
-  - qalisa.qalisa.github.io
+  - qalisa.github.io
   resources:
   - githubactionsecretssyncs/status
   - githubsyncrepoes/status

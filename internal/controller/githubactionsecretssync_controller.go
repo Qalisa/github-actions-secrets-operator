@@ -4,7 +4,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,11 +34,11 @@ func (r *GithubActionSecretsSyncReconciler) Reconcile(ctx context.Context, req c
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic: %v\n", r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Printf("Recovered from panic: %v\n", r)
+	// 	}
+	// }()
 
 	//
 	//

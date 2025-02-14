@@ -35,11 +35,11 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic: %v\n", r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Printf("Recovered from panic: %v\n", r)
+	// 	}
+	// }()
 
 	//
 	//

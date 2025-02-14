@@ -75,9 +75,13 @@ jobs:
           helm repo add qalisa https://qalisa.github.io/charts
           helm repo update
 
+      - name: Update Helm documentation
+        run: |
+          make helm-docs
+
       - name: Package Helm chart
         run: |
-          helm package charts/operator --destination .cr-release-packages
+          helm package helm-charts/push-github-secrets-operator --destination .cr-release-packages
 
       - name: Upload Helm chart
         uses: actions/upload-artifact@v3

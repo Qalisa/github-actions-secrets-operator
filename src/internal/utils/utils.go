@@ -343,7 +343,7 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 		repo, err := ParseRepository(*repoCRD)
 		if err != nil {
 			SetSyncedStatusCondition(repoCRD, &repoCRD.Status.Conditions, "False", err.Error())
-			// if failed, skip syncing alltogether
+			// if failed, skip syncing altogether
 			goto doRegisterStatus
 		}
 

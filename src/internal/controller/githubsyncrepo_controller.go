@@ -50,7 +50,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	instance := &qalisav1alpha1.GithubSyncRepo{}
 	toApplyTo := []*qalisav1alpha1.GithubSyncRepo{instance}
 	var dataBySync utils.SecVarsBySync
-	var concernedSyncConfigs []qalisav1alpha1.GithubActionSecretsSync
+	concernedSyncConfigs := []qalisav1alpha1.GithubActionSecretsSync{}
 	var tempSyncConfigs qalisav1alpha1.GithubActionSecretsSyncList
 	reachedSync := false
 
@@ -155,7 +155,7 @@ func (r *GithubSyncRepoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return []string{obj.GetName()}
 		},
 	); err != nil {
-		// handle error
+		panic("issue with index definition")
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

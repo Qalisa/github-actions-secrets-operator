@@ -24,6 +24,11 @@
             "hide": true
         },
         {
+            "label": "🐋🔧 Build Docker image",
+            "type": "shell",
+            "command": "make docker-build"
+        },
+        {
             "label": "👵 Apply sample CRDs",
             "type": "shell",
             "command": "make apply-samples",

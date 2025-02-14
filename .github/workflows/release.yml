@@ -20,6 +20,8 @@ jobs:
       image_tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - uses: actions/setup-go@v4
         with:
@@ -53,23 +55,15 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:cache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:cache,mode=max
           outputs: type=image,push=true
-      
-      - uses: actions/upload-artifact@v4
-        with:
-          name: source-code
-          path: ./
-          retention-days: 1
 
   publish-helm-chart:
-    needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: source-code
-          path: ./
+          fetch-depth: 0
       
       - uses: azure/setup-helm@v3
         with:
@@ -81,10 +75,7 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
       
       - name: Update Helm documentation
-        run: |
-          if ! git diff --quiet -- helm-charts/; then
-            make helm-docs
-          fi
+        run: make helm-docs
       
       - name: Package Helm chart
         run: |
@@ -97,7 +88,6 @@ jobs:
         with:
           name: helm-chart
           path: .cr-release-packages/*.tgz
-          retention-days: 1
 
   create-release:
     needs: [build-and-push, publish-helm-chart]

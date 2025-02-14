@@ -60,46 +60,46 @@ lint: ## Run golangci-lint
 
 .PHONY: generate-crds
 generate-crds: controller-gen ## Generate CRDs (only run this when API changes)
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=helm/push-github-secrets-operator/crds
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="src/..." output:crd:artifacts:config=helm-charts/push-github-secrets-operator/crds
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="src/hack/boilerplate.go.txt" paths="src/..."
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
-	go fmt ./...
+	cd src && go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	cd src && go vet ./...
 
 ##@ Build
 
 .PHONY: build
 build: fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	cd src && go build -o bin/manager cmd/main.go
 
 .PHONY: run
 run: fmt vet ## Run a controller from your host.
-	@if [ ! -f .env ]; then \
-		echo "Error: .env file is required" >&2; \
+	@if [ ! -f src/.env ]; then \
+		echo "Error: src/.env file is required" >&2; \
 		exit 1; \
 	fi
-	@if ! grep -q "GITHUB_APP_ID=" .env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" .env || \
-		! grep -q "GITHUB_PRIVATE_KEY_PATH=" .env; then \
+	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
+		! grep -q "GITHUB_INSTALLATION_ID=" src/.env || \
+		! grep -q "GITHUB_PRIVATE_KEY_PATH=" src/.env; then \
 		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
 		exit 1; \
 	fi
-	source .env && go run ./cmd/main.go
+	source src/.env && cd src && go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	cd src && docker build -t ${IMG} .
 
 .PHONY: kind-create
 kind-create: ## Create kind cluster for local development
@@ -125,28 +125,28 @@ endif
 
 .PHONY: install-crds
 install-crds: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	kubectl apply -f helm/push-github-secrets-operator/crds/
+	kubectl apply -f helm-charts/push-github-secrets-operator/crds/
 
 .PHONY: uninstall-crds
 uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	kubectl delete --ignore-not-found=$(ignore-not-found) -f helm/push-github-secrets-operator/crds/
+	kubectl delete --ignore-not-found=$(ignore-not-found) -f helm-charts/push-github-secrets-operator/crds/
 
 .PHONY: deploy-without-image
 deploy-without-image: kind-create generate-crds install-crds
 
 .PHONY: deploy
 deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	@if [ ! -f .env ]; then \
-		echo "Error: .env file is required" >&2; \
+	@if [ ! -f src/.env ]; then \
+		echo "Error: src/.env file is required" >&2; \
 		exit 1; \
 	fi
-	@if ! grep -q "GITHUB_APP_ID=" .env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" .env || \
-		! grep -q "GITHUB_PRIVATE_KEY_PATH=" .env; then \
+	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
+		! grep -q "GITHUB_INSTALLATION_ID=" src/.env || \
+		! grep -q "GITHUB_PRIVATE_KEY_PATH=" src/.env; then \
 		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
 		exit 1; \
 	fi
-	source .env && helm upgrade --install push-github-secrets-operator charts/operator \
+	source src/.env && helm upgrade --install push-github-secrets-operator helm-charts/push-github-secrets-operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
 		--set github.appId="$$GITHUB_APP_ID" \
@@ -160,7 +160,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
+LOCALBIN ?= $(shell pwd)/src/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 

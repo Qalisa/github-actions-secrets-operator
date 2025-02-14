@@ -1,8 +1,0 @@
-apiVersion: qalisa.github.io/v1alpha1
-kind: GithubSyncRepo
-metadata:
-  name: qalisa-vitrine
-spec:
-  repository: "Qalisa/vitrine"
-  secretsSyncRefs:
-    - default

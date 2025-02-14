@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: gh-action
-  namespace: gh-secret-operator
-data:
-  TEST_API_URL: "http://dummy.com/api"

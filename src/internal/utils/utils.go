@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	qalisav1alpha1 "github.com/qalisa/github-actions-secrets-operator/api/v1alpha1"
 	"github.com/qalisa/github-actions-secrets-operator/pkg/github"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -322,7 +323,9 @@ func defineGHPropertySyncStatus(instance metav1.Object, states *[]qalisav1alpha1
 //
 
 // TODO: handle timeouts, requeue with "return ctrl.Result{RequeueAfter: time.Minute}, nil" ?
-func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Client, toApplyTo []*qalisav1alpha1.GithubSyncRepo, secVarsToSync SecVarsBySync) (ctrl.Result, error) {
+func SynchronizeToGithub(ctx context.Context, cli client.Client, logger logr.Logger, ghCli github.Client, toApplyTo []*qalisav1alpha1.GithubSyncRepo, secVarsToSync SecVarsBySync) (ctrl.Result, error) {
+	logger.Info("Start checking sync status")
+
 	//
 	//
 	//
@@ -347,6 +350,8 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 			goto doRegisterStatus
 		}
 
+		logger.Info("Checking...", "repo", repo)
+
 		//
 		//
 		// handle SECRETS bucket...
@@ -359,11 +364,34 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 				// try to find if already synced
 				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubSecretName, secVar) {
 					secAttempts.BumpNotNeeded()
+					logger.Info("Already synced",
+						"repo", repo,
+						"secret", githubSecretName,
+					)
 					continue
 				}
 
+				//
+				logger.Info("Attempting sync...",
+					"repo", repo,
+					"secret", githubSecretName,
+				)
+
 				// if not, try to update w/ Github API
 				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Secret, repo, githubSecretName)
+
+				if err != nil {
+					logger.Info("Sync failed",
+						"repo", repo,
+						"secret", githubSecretName,
+						"error", err,
+					)
+				} else {
+					logger.Info("Sync successful",
+						"repo", repo,
+						"secret", githubSecretName,
+					)
+				}
 
 				// whatever the result, define sync state
 				defineGHPropertySyncStatus(repoCRD, ghPropsSyncStateDict, githubSecretName, secVar, err, &secAttempts)
@@ -381,12 +409,34 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 
 				// try to find if already synced
 				if isGHPropertyAlreadySynced(ghPropsSyncStateDict, githubVariableName, secVar) {
-					secAttempts.BumpNotNeeded()
+					varAttempts.BumpNotNeeded()
+					logger.Info("Already synced",
+						"repo", repo,
+						"variable", githubVariableName,
+					)
 					continue
 				}
 
+				logger.Info("Attempting sync...",
+					"repo", repo,
+					"variable", githubVariableName,
+				)
+
 				// if not, try to update w/ Github API
 				err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Variable, repo, githubVariableName)
+
+				if err != nil {
+					logger.Info("Sync failed",
+						"repo", repo,
+						"variable", githubVariableName,
+						"error", err,
+					)
+				} else {
+					logger.Info("Sync successful",
+						"repo", repo,
+						"variable", githubVariableName,
+					)
+				}
 
 				// whatever the result, define sync state
 				defineGHPropertySyncStatus(repoCRD, ghPropsSyncStateDict, githubVariableName, secVar, err, &varAttempts)
@@ -404,6 +454,11 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 			secAttempts.DoneOrDidSuccess(), secAttempts.Total(),
 		)
 
+		logger.Info("Repo sync attempt finished",
+			"repo", repo,
+			"recap", resultStatsStr,
+		)
+
 		if varAttempts.HasFailed() || secAttempts.HasFailed() {
 			SetSyncedStatusCondition(repoCRD, &repoCRD.Status.Conditions, "False", fmt.Sprintf("Some synchronizations failed %s", resultStatsStr))
 		} else {
@@ -417,10 +472,12 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, ghCli github.Cl
 	doRegisterStatus:
 		// now, try to update status
 		if err := cli.Status().Update(ctx, repoCRD); err != nil {
-			// Kind of anormal error; Would immediately schedule requeue because of err is set
+			logger.Error(err, "Unexpected fatal error while saving status for current GithubSyncRepo; rescheduling reconciliation.")
 			return ctrl.Result{}, err
 		}
 	}
+
+	logger.Info("Sync run ended")
 
 	//
 	return ctrl.Result{}, nil

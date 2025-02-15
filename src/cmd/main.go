@@ -68,12 +68,11 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 
 	// GitHub App configuration flags
-	var githubAppID int64
-	var githubInstallationID int64
+	var githubAppID_str, githubInstallationID_str string
 	var githubPrivateKeyPath string
 
-	flag.Int64Var(&githubAppID, "github-app-id", 0, "GitHub App ID")
-	flag.Int64Var(&githubInstallationID, "github-installation-id", 0, "GitHub App Installation ID")
+	flag.StringVar(&githubAppID_str, "github-app-id", "", "GitHub App ID")
+	flag.StringVar(&githubInstallationID_str, "github-installation-id", "", "GitHub App Installation ID")
 	flag.StringVar(&githubPrivateKeyPath, "github-private-key-path", "", "Path to GitHub App private key file")
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to.")
@@ -101,34 +100,47 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// Validate GitHub App configuration
-	if githubAppID == 0 {
-		if envAppID := os.Getenv("GITHUB_APP_ID"); envAppID != "" {
-			var err error
-			githubAppID, err = strconv.ParseInt(envAppID, 10, 64)
-			if err != nil {
-				setupLog.Error(err, "invalid GITHUB_APP_ID environment variable")
-				os.Exit(1)
-			}
-		} else {
-			setupLog.Error(nil, "GitHub App ID is required")
-			os.Exit(1)
-		}
+	//
+	//
+	//
+
+	//
+	if githubAppID_str == "" {
+		githubAppID_str = os.Getenv("GITHUB_APP_ID")
+	}
+	if githubInstallationID_str == "" {
+		githubInstallationID_str = os.Getenv("GITHUB_INSTALLATION_ID")
 	}
 
-	if githubInstallationID == 0 {
-		if envInstallID := os.Getenv("GITHUB_INSTALLATION_ID"); envInstallID != "" {
-			var err error
-			githubInstallationID, err = strconv.ParseInt(envInstallID, 10, 64)
-			if err != nil {
-				setupLog.Error(err, "invalid GITHUB_INSTALLATION_ID environment variable")
-				os.Exit(1)
-			}
-		} else {
-			setupLog.Error(nil, "GitHub Installation ID is required")
-			os.Exit(1)
-		}
+	//
+	if githubAppID_str == "" {
+		setupLog.Error(nil, "GitHub App ID is required")
+		os.Exit(1)
 	}
+	if githubInstallationID_str == "" {
+		setupLog.Error(nil, "GitHub Installation ID is required")
+		os.Exit(1)
+	}
+
+	//
+	var githubAppID, githubInstallationID int64
+
+	//
+	var err error
+	githubAppID, err = strconv.ParseInt(githubAppID_str, 10, 64)
+	if err != nil {
+		setupLog.Error(err, "provided GITHUB_APP_ID must be an integer")
+		os.Exit(1)
+	}
+	githubInstallationID, err = strconv.ParseInt(githubInstallationID_str, 10, 64)
+	if err != nil {
+		setupLog.Error(err, "provided GITHUB_INSTALLATION_ID must be an integer")
+		os.Exit(1)
+	}
+
+	//
+	//
+	//
 
 	if githubPrivateKeyPath == "" {
 		githubPrivateKeyPath = os.Getenv("GITHUB_PRIVATE_KEY_PATH")
@@ -144,6 +156,10 @@ func main() {
 		setupLog.Error(err, "failed to read GitHub private key")
 		os.Exit(1)
 	}
+
+	//
+	//
+	//
 
 	// Initialize GitHub client
 	githubClient, err := github.NewClient(github.Config{

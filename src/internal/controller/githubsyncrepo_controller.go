@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	qalisav1alpha1 "github.com/qalisa/github-actions-secrets-operator/api/v1alpha1"
 	"github.com/qalisa/github-actions-secrets-operator/internal/utils"
@@ -32,14 +33,15 @@ type GithubSyncRepoReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
 
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("Recovered from panic: %v\n", r)
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Printf("Recovered from panic: %v\n", r),
+	// 	}
+	// }()
 
 	//
 	//
@@ -67,7 +69,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			goto doRegisterStatus
 		}
 
-		// any other kind of error. Would immediately schedule requeue because of err is set
+		logger.Error(err, "Unexpected fatal error while fetching current GithubSyncRepo; rescheduling reconciliation.")
 		return ctrl.Result{}, err
 	}
 
@@ -77,6 +79,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if _, err := utils.ParseRepository(*instance); err != nil {
 		utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+		logger.Error(err, "Error in repository parsing")
 		goto doRegisterStatus
 	}
 
@@ -89,14 +92,16 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// find with refd name
 		if err := r.List(ctx, &tempSyncConfigs, client.MatchingFields{indexFieldName: name}); err != nil {
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+			logger.Error(err, "Could not get GithubActionSecretsSync resources from cluster")
 			goto doRegisterStatus
 		}
 
 		// if not finding exactly 1 ref
 		found := len(tempSyncConfigs.Items)
 		if found != 1 {
-			errMsg := fmt.Sprintf("Failed to find referenced GithubActionSecretsSync '%s' within cluster (found %d)", name, found)
-			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", errMsg)
+			err := fmt.Errorf("failed to find referenced GithubActionSecretsSync '%s' within cluster (found %d)", name, found)
+			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+			logger.Error(err, "Unable to find GithubActionSecretsSync referenced by GithubRepo")
 			goto doRegisterStatus
 		}
 
@@ -111,6 +116,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	for _, sync := range concernedSyncConfigs {
 		if err := utils.FillSyncBuffer(ctx, r.Client, &sync, &dataBySync); err != nil {
 			utils.SetSyncedStatusCondition(instance, &instance.Status.Conditions, "False", err.Error())
+			logger.Error(err, "Unable to prepare secrets and variables")
 			goto doRegisterStatus
 		}
 	}
@@ -119,7 +125,7 @@ func (r *GithubSyncRepoReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	//
 	//
 
-	result, syncErr = utils.SynchronizeToGithub(ctx, r.Client, r.GitHubClient, toApplyTo, dataBySync)
+	result, syncErr = utils.SynchronizeToGithub(ctx, r.Client, logger, r.GitHubClient, toApplyTo, dataBySync)
 	reachedSync = true
 
 	//
@@ -130,7 +136,7 @@ doRegisterStatus:
 	if !reachedSync {
 		// now, try to update this instance's status
 		if err := r.Client.Status().Update(ctx, instance); err != nil {
-			// Kind of anormal error; Would immediately schedule requeue because of err is set
+			logger.Error(err, "Unexpected fatal error while saving status for current GithubActionSyncRepo; rescheduling reconciliation.")
 			return ctrl.Result{}, err
 		}
 	}

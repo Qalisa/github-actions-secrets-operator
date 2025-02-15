@@ -12,8 +12,20 @@ env:
   TRIGGER_ON_COMMIT_MSG: 'Please Publish Helm'
 
 jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest         
+    outputs:
+      TRIGGER_ON_COMMIT_MSG: ${{ steps.init.outputs.TRIGGER_ON_COMMIT_MSG }}
+    steps:        
+      - name: Environment variables to output 
+        id: init
+        run: |
+          echo "TRIGGER_ON_COMMIT_MSG=${{ env.MY_VAR }}" >> $GITHUB_OUTPUT
+
   build-and-push:
-    if: contains(github.event.head_commit.message, ${{ env.TRIGGER_ON_COMMIT_MSG }})
+    needs: prepare
+    if: contains(github.event.head_commit.message, needs.prepare.outputs.TRIGGER_ON_COMMIT_MSG)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -69,7 +81,8 @@ jobs:
           outputs: type=image,push=true
 
   publish-helm-chart:
-    if: contains(github.event.head_commit.message, ${{ env.TRIGGER_ON_COMMIT_MSG }})
+    needs: prepare
+    if: contains(github.event.head_commit.message, needs.prepare.outputs.TRIGGER_ON_COMMIT_MSG)
     runs-on: ubuntu-latest
     permissions:
       contents: write

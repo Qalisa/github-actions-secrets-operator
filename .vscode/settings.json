@@ -1,7 +1,6 @@
 {
     "git.blame.statusBarItem.enabled": false,
     "debug.showInStatusBar": "never",
-    "tasks.statusbar.limit": 3,
     "tasks.statusbar.select.color": "#FFF",
     "tasks.statusbar.default.color": "#FFF",
 }

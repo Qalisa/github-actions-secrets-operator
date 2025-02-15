@@ -13,7 +13,6 @@
             "type": "shell",
             "detail": "Create a local Kind cluster, pushes CRDs, uploads Controller image into Kind, apply test samples",
             "command": "make deploy apply-samples",
-            "hide": true,
             "problemMatcher": []
         },
         {

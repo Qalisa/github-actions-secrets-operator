@@ -1,6 +1,9 @@
 # Image URL to use all building/pushing image targets
 IMG ?= qalisa/github-actions-secrets-operator:latest
 
+#
+EXPECTED_GH_PRIV_KEY_FILE = $(shell pwd)/src/github-privateKey.pem
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -90,9 +93,8 @@ run: fmt vet ## Run a controller from your host.
 		exit 1; \
 	fi
 	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" src/.env || \
-		! grep -q "GITHUB_PRIVATE_KEY_PATH=" src/.env; then \
-		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
+		! grep -q "GITHUB_INSTALLATION_ID=" src/.env; then \
+		echo "Error: .env must contain GITHUB_APP_ID and GITHUB_INSTALLATION_ID" >&2; \
 		exit 1; \
 	fi
 	source src/.env && cd src && go run ./cmd/main.go
@@ -138,23 +140,27 @@ uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/conf
 deploy-without-image: kind-create generate-all install-crds
 
 .PHONY: deploy
-deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: # deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	@if [ ! -f src/.env ]; then \
 		echo "Error: src/.env file is required" >&2; \
 		exit 1; \
 	fi
 	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" src/.env || \
-		! grep -q "GITHUB_PRIVATE_KEY_PATH=" src/.env; then \
-		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
+		! grep -q "GITHUB_INSTALLATION_ID=" src/.env ; then \
+		echo "Error: .env must contain GITHUB_APP_ID and GITHUB_INSTALLATION_ID" >&2; \
 		exit 1; \
 	fi
+	@if [ ! -f ${EXPECTED_GH_PRIV_KEY_FILE} ]; then \
+		echo "Error: Private key is expected in ${EXPECTED_GH_PRIV_KEY_FILE}" >&2; \
+		exit 1; \
+	fi
+
 	source src/.env && helm upgrade --install github-actions-secrets-operator charts/github-actions-secrets-operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
 		--set github.appId="$$GITHUB_APP_ID" \
 		--set github.installationId="$$GITHUB_INSTALLATION_ID" \
-		--set github.privateKeyPath="$$GITHUB_PRIVATE_KEY_PATH"
+		--set github.privateKey="$$(cat ${EXPECTED_GH_PRIV_KEY_FILE})"
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.

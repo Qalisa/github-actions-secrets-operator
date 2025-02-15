@@ -60,10 +60,11 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:latest
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ github.ref_name }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.chart.outputs.app_version }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.version=${{ steps.chart.outputs.app_version }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:cache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:cache,mode=max
           outputs: type=image,push=true

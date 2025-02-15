@@ -1,4 +1,4 @@
-# Push GitHub Secrets Operator
+# GitHub Actions Secrets Operator
 
 A Kubernetes operator to synchronize secrets and variables to GitHub repositories, bypassing GitHub Free Plan restrictions on organization-level secrets.
 

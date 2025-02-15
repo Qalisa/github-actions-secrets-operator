@@ -55,6 +55,8 @@ jobs:
           context: ./src
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:latest

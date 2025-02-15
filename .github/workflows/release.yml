@@ -9,12 +9,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   GO_VERSION: '1.23'
-  HELM_VERSION: 'v3.12.0'
   TRIGGER_ON_COMMIT_MSG: Please Publish Helm
 
 jobs:
   build-and-push:
-    if: contains(github.event.head_commit.message, '${{ env.TRIGGER_ON_COMMIT_MSG }} ')
+    if: contains(github.event.head_commit.message, env.TRIGGER_ON_COMMIT_MSG)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,7 +69,7 @@ jobs:
           outputs: type=image,push=true
 
   publish-helm-chart:
-    if: contains(github.event.head_commit.message, '${{ env.TRIGGER_ON_COMMIT_MSG }} ')
+    if: contains(github.event.head_commit.message, env.TRIGGER_ON_COMMIT_MSG)
     runs-on: ubuntu-latest
     permissions:
       contents: write

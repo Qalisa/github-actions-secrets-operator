@@ -3,6 +3,7 @@ IMG ?= qalisa/github-actions-secrets-operator:latest
 
 #
 EXPECTED_GH_PRIV_KEY_FILE = $(shell pwd)/src/github-privateKey.pem
+CLUSTER_NAME = operator-dev
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -86,18 +87,25 @@ vet: ## Run go vet against code.
 build: fmt vet ## Build manager binary.
 	cd src && go build -o bin/manager cmd/main.go
 
-.PHONY: run
-run: fmt vet ## Run a controller from your host.
+.PHONY: pre-run
+pre-run: # checks
 	@if [ ! -f src/.env ]; then \
 		echo "Error: src/.env file is required" >&2; \
 		exit 1; \
 	fi
 	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" src/.env; then \
+		! grep -q "GITHUB_INSTALLATION_ID=" src/.env ; then \
 		echo "Error: .env must contain GITHUB_APP_ID and GITHUB_INSTALLATION_ID" >&2; \
 		exit 1; \
 	fi
-	source src/.env && cd src && go run ./cmd/main.go
+	@if [ ! -f ${EXPECTED_GH_PRIV_KEY_FILE} ]; then \
+		echo "Error: Private key is expected in ${EXPECTED_GH_PRIV_KEY_FILE}" >&2; \
+		exit 1; \
+	fi
+
+.PHONY: run
+run: pre-run fmt vet ## Run a controller from your host.
+	source src/.env && cd src && GITHUB_PRIVATE_KEY_PATH=${EXPECTED_GH_PRIV_KEY_FILE} go run ./cmd/main.go
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
@@ -108,15 +116,19 @@ docker-build: ## Build docker image with the manager.
 
 .PHONY: kind-create
 kind-create: ## Create kind cluster for local development
-	kind create cluster --name operator-dev --config kind-config.yaml || true
+	@if kind get clusters | grep -q "^${CLUSTER_NAME}$$"; then \
+		echo "Cluster '${CLUSTER_NAME}' already exists. Skipping creation."; \
+	else \
+		kind create cluster --name ${CLUSTER_NAME} --config kind-config.yaml || true; \
+	fi
 
 .PHONY: kind-delete
 kind-delete: ## Delete kind cluster
-	kind delete cluster --name operator-dev
+	kind delete cluster --name ${CLUSTER_NAME}
 
 .PHONY: docker-load
 docker-load: docker-build ## Load docker image into kind cluster.
-	kind load docker-image ${IMG} --name operator-dev
+	kind load docker-image ${IMG} --name ${CLUSTER_NAME}
 
 .PHONY: docker-push
 docker-push: docker-build ## Push docker image with the manager.
@@ -140,21 +152,7 @@ uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/conf
 deploy-without-image: kind-create generate-all install-crds
 
 .PHONY: deploy
-deploy: # deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	@if [ ! -f src/.env ]; then \
-		echo "Error: src/.env file is required" >&2; \
-		exit 1; \
-	fi
-	@if ! grep -q "GITHUB_APP_ID=" src/.env || \
-		! grep -q "GITHUB_INSTALLATION_ID=" src/.env ; then \
-		echo "Error: .env must contain GITHUB_APP_ID and GITHUB_INSTALLATION_ID" >&2; \
-		exit 1; \
-	fi
-	@if [ ! -f ${EXPECTED_GH_PRIV_KEY_FILE} ]; then \
-		echo "Error: Private key is expected in ${EXPECTED_GH_PRIV_KEY_FILE}" >&2; \
-		exit 1; \
-	fi
-
+deploy: pre-run deploy-without-image docker-load ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	source src/.env && helm upgrade --install github-actions-secrets-operator charts/github-actions-secrets-operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
@@ -193,4 +191,5 @@ helm-docs: ## Generate Helm chart documentation
 
 .PHONY: apply-samples
 apply-samples: ## Apply sample CRDs to the cluster
+	kubectl apply -f config/samples/ns.yaml
 	kubectl apply -f config/samples/

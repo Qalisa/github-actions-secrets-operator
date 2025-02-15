@@ -23,6 +23,12 @@
             "hide": true
         },
         {
+            "label": "👵💤 Shutdown Kind cluster",
+            "type": "shell",
+            "command": "make kind-delete",
+            "problemMatcher": [],
+        },
+        {
             "label": "🐋🔧 Build Docker image",
             "type": "shell",
             "command": "make docker-build"

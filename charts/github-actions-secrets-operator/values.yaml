@@ -18,7 +18,6 @@ github:
   # GitHub App configuration
   appId: ""  # Required: GitHub App ID
   installationId: ""  # Required: GitHub App Installation ID
-  privateKeyPath: "/etc/github/private-key"  # Path where the private key will be mounted
   existingSecret: ""  # Name of existing secret containing GitHub App private key
   # If existingSecret is not provided, create a new secret with this key
   privateKey: ""  # GitHub App private key in PEM format

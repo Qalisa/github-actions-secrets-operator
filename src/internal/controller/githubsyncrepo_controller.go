@@ -12,9 +12,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
-	"github.com/qalisa/push-github-secrets-operator/internal/utils"
-	"github.com/qalisa/push-github-secrets-operator/pkg/github"
+	qalisav1alpha1 "github.com/qalisa/github-actions-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/github-actions-secrets-operator/internal/utils"
+	"github.com/qalisa/github-actions-secrets-operator/pkg/github"
 )
 
 type GithubSyncRepoReconciler struct {

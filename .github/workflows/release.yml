@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - charts/push-github-secrets-operator/Chart.yaml
+      - charts/github-actions-secrets-operator/Chart.yaml
 
 env:
   REGISTRY: ghcr.io

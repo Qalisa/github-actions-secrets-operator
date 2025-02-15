@@ -1,5 +1,5 @@
 apiVersion: v2
-name: push-github-secrets-operator
+name: github-actions-secrets-operator
 description: A Kubernetes operator to synchronize secrets and variables to GitHub repositories
 
 # A chart can be either an application or a library chart
@@ -24,12 +24,12 @@ keywords:
   - kubernetes
   - operator
 
-home: https://github.com/Qalisa/push-github-secrets-operator
+home: https://github.com/Qalisa/github-actions-secrets-operator
 sources:
-  - https://github.com/Qalisa/push-github-secrets-operator
+  - https://github.com/Qalisa/github-actions-secrets-operator
 
 # OpenShift compatibility
 annotations:
   openshift.io/provider: Qalisa
-  openshift.io/documentation-url: https://github.com/Qalisa/push-github-secrets-operator
-  openshift.io/support-url: https://github.com/Qalisa/push-github-secrets-operator/issues
+  openshift.io/documentation-url: https://github.com/Qalisa/github-actions-secrets-operator
+  openshift.io/support-url: https://github.com/Qalisa/github-actions-secrets-operator/issues

@@ -32,7 +32,7 @@ helm repo update
 
 2. Install the operator:
 ```bash
-helm install push-github-secrets-operator qalisa/push-github-secrets-operator \
+helm install github-actions-secrets-operator qalisa/github-actions-secrets-operator \
   --set github.appId=<your-app-id> \
   --set github.installationId=<your-installation-id> \
   --set github.privateKey="$(cat path/to/private-key.pem)"
@@ -40,7 +40,7 @@ helm install push-github-secrets-operator qalisa/push-github-secrets-operator \
 
 Or using an existing secret:
 ```bash
-helm install push-github-secrets-operator qalisa/push-github-secrets-operator \
+helm install github-actions-secrets-operator qalisa/github-actions-secrets-operator \
   --set github.appId=<your-app-id> \
   --set github.installationId=<your-installation-id> \
   --set github.existingSecret=my-github-secret
@@ -139,8 +139,8 @@ All other dependencies (Go, kubectl, kind, etc.) will be installed automatically
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Qalisa/push-github-secrets-operator.git
-cd push-github-secrets-operator
+git clone https://github.com/Qalisa/github-actions-secrets-operator.git
+cd github-actions-secrets-operator
 ```
 
 ## Contributing

@@ -1,4 +1,4 @@
-module github.com/qalisa/push-github-secrets-operator
+module github.com/qalisa/github-actions-secrets-operator
 
 go 1.23.0
 

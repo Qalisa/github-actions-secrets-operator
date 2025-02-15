@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= qalisa/push-github-secrets-operator:latest
+IMG ?= qalisa/github-actions-secrets-operator:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -63,7 +63,7 @@ generate-all: generate-helpers generate-crds
 
 .PHONY: generate-crds
 generate-crds: controller-gen ## Generate CRDs (only run this when API changes)
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./src/..." output:crd:artifacts:config=charts/push-github-secrets-operator/crds
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./src/..." output:crd:artifacts:config=charts/github-actions-secrets-operator/crds
 
 .PHONY: generate-helpers
 generate-helpers: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -128,11 +128,11 @@ endif
 
 .PHONY: install-crds
 install-crds: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	kubectl apply -f charts/push-github-secrets-operator/crds/
+	kubectl apply -f charts/github-actions-secrets-operator/crds/
 
 .PHONY: uninstall-crds
 uninstall-crds: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/push-github-secrets-operator/crds/
+	kubectl delete --ignore-not-found=$(ignore-not-found) -f charts/github-actions-secrets-operator/crds/
 
 .PHONY: deploy-without-image
 deploy-without-image: kind-create generate-all install-crds
@@ -149,7 +149,7 @@ deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster
 		echo "Error: .env must contain GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY_PATH" >&2; \
 		exit 1; \
 	fi
-	source src/.env && helm upgrade --install push-github-secrets-operator charts/push-github-secrets-operator \
+	source src/.env && helm upgrade --install github-actions-secrets-operator charts/github-actions-secrets-operator \
 		--set image.repository=$(shell echo ${IMG} | cut -f1 -d:) \
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
 		--set github.appId="$$GITHUB_APP_ID" \
@@ -158,7 +158,7 @@ deploy: deploy-without-image docker-load ## Deploy controller to the K8s cluster
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	helm uninstall push-github-secrets-operator
+	helm uninstall github-actions-secrets-operator
 
 ##@ Build Dependencies
 

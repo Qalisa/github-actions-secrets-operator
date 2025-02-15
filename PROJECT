@@ -5,8 +5,8 @@
 domain: qalisa.github.io
 layout:
 - go.kubebuilder.io/v4
-projectName: push-github-secrets-operator
-repo: github.com/qalisa/push-github-secrets-operator
+projectName: github-actions-secrets-operator
+repo: github.com/qalisa/github-actions-secrets-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,7 +15,7 @@ resources:
   domain: qalisa.github.io
   group: qalisa
   kind: GithubActionSecretsSync
-  path: github.com/qalisa/push-github-secrets-operator/api/v1alpha1
+  path: github.com/qalisa/github-actions-secrets-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -24,6 +24,6 @@ resources:
   domain: qalisa.github.io
   group: qalisa
   kind: GithubSyncRepo
-  path: github.com/qalisa/push-github-secrets-operator/api/v1alpha1
+  path: github.com/qalisa/github-actions-secrets-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

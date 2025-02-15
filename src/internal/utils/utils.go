@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
-	"github.com/qalisa/push-github-secrets-operator/pkg/github"
+	qalisav1alpha1 "github.com/qalisa/github-actions-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/github-actions-secrets-operator/pkg/github"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	corev1 "k8s.io/api/core/v1"

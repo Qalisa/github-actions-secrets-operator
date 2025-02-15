@@ -39,9 +39,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	qalisav1alpha1 "github.com/qalisa/push-github-secrets-operator/api/v1alpha1"
-	"github.com/qalisa/push-github-secrets-operator/internal/controller"
-	"github.com/qalisa/push-github-secrets-operator/pkg/github"
+	qalisav1alpha1 "github.com/qalisa/github-actions-secrets-operator/api/v1alpha1"
+	"github.com/qalisa/github-actions-secrets-operator/internal/controller"
+	"github.com/qalisa/github-actions-secrets-operator/pkg/github"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -7,6 +7,33 @@ entries:
       openshift.io/support-url: https://github.com/Qalisa/github-actions-secrets-operator/issues
     apiVersion: v2
     appVersion: 0.1.5
+    created: "2025-02-15T07:46:25.084784957Z"
+    description: A Kubernetes operator to synchronize secrets and variables to GitHub
+      repositories
+    digest: 0a5a2a71ff2c6d2d94706a9bdf1f1d46388e17f678bfe5f71683e1c5a0070b7b
+    home: https://github.com/Qalisa/github-actions-secrets-operator
+    keywords:
+    - github
+    - secrets
+    - variables
+    - kubernetes
+    - operator
+    maintainers:
+    - name: Guillaume Vara
+      url: https://github.com/Qalisa
+    name: github-actions-secrets-operator
+    sources:
+    - https://github.com/Qalisa/github-actions-secrets-operator
+    type: application
+    urls:
+    - https://github.com/Qalisa/github-actions-secrets-operator/releases/download/github-actions-secrets-operator-1.0.3/github-actions-secrets-operator-1.0.3.tgz
+    version: 1.0.3
+  - annotations:
+      openshift.io/documentation-url: https://github.com/Qalisa/github-actions-secrets-operator
+      openshift.io/provider: Qalisa
+      openshift.io/support-url: https://github.com/Qalisa/github-actions-secrets-operator/issues
+    apiVersion: v2
+    appVersion: 0.1.5
     created: "2025-02-15T07:30:03.502168525Z"
     description: A Kubernetes operator to synchronize secrets and variables to GitHub
       repositories
@@ -83,4 +110,4 @@ entries:
     urls:
     - https://github.com/Qalisa/push-github-secrets-operator/releases/download/push-github-secrets-operator-1.0.0/push-github-secrets-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2025-02-15T07:30:03.502178393Z"
+generated: "2025-02-15T07:46:25.084800997Z"

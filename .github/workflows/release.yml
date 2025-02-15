@@ -59,9 +59,9 @@ jobs:
             BUILDKIT_INLINE_CACHE=1
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
-            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:latest
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ github.ref_name }}
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.chart.outputs.app_version }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}

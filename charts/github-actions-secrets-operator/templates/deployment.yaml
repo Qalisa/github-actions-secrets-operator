@@ -42,8 +42,8 @@ spec:
             {{- if .Values.leaderElection.enabled }}
             - --leader-elect=true
             {{- end }}
-            - --github-app-id='{{ required "GitHub App ID is required" .Values.github.appId }}'
-            - --github-installation-id='{{ required "GitHub Installation ID is required" .Values.github.installationId }}'
+            - --github-app-id={{ required "GitHub App ID is required" .Values.github.appId | toString | quote }}
+            - --github-installation-id={{ required "GitHub Installation ID is required" .Values.github.installationId | toString | quote }}
             - --github-private-key-path=/etc/github/private-key
           ports:
             - name: healthz

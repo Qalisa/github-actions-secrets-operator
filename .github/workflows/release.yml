@@ -81,7 +81,7 @@ jobs:
           outputs: type=image,push=true
 
   publish-helm-chart:
-    needs: prepare
+    needs: [prepare, build-and-push]
     if: contains(github.event.head_commit.message, needs.prepare.outputs.TRIGGER_ON_COMMIT_MSG)
     runs-on: ubuntu-latest
     permissions:

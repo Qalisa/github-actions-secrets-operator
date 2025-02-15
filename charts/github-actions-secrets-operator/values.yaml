@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: qalisa/github-actions-secrets-operator
+  repository: ghcr.io/qalisa/github-actions-secrets-operator
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""

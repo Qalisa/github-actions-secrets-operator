@@ -48,7 +48,10 @@ jobs:
           context: ./src
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:latest
+            ${{ env.REGISTRY }}/${{ steps.meta.outputs.image_name }}:${{ github.ref_name }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}

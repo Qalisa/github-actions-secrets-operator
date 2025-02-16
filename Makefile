@@ -158,7 +158,7 @@ deploy: pre-run deploy-without-image docker-load ## Deploy controller to the K8s
 		--set image.tag=$(shell echo ${IMG} | cut -f2 -d:) \
 		--set github.appId="$$GITHUB_APP_ID" \
 		--set github.installationId="$$GITHUB_INSTALLATION_ID" \
-		--set github.privateKey="$$(cat ${EXPECTED_GH_PRIV_KEY_FILE})"
+		--set github.privateKey.explicit="$$(cat ${EXPECTED_GH_PRIV_KEY_FILE})"
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.

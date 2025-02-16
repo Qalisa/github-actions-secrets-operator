@@ -35,7 +35,7 @@ helm repo update
 helm install github-actions-secrets-operator qalisa/github-actions-secrets-operator \
   --set github.appId=<your-app-id> \
   --set github.installationId=<your-installation-id> \
-  --set github.privateKey="$(cat path/to/private-key.pem)"
+  --set github.privateKey.explicit="$(cat path/to/private-key.pem)"
 ```
 
 Or using an existing secret:
@@ -43,7 +43,7 @@ Or using an existing secret:
 helm install github-actions-secrets-operator qalisa/github-actions-secrets-operator \
   --set github.appId=<your-app-id> \
   --set github.installationId=<your-installation-id> \
-  --set github.existingSecret=my-github-secret
+  --set github.privateKey.existingSecret=my-github-secret
 ```
 
 ## GitHub App Setup
@@ -83,17 +83,25 @@ metadata:
   name: prod-secrets
 spec:
   secrets:
-    - secretRef: db-credentials
+    - secretRef: 
+        name: db-credentials
+        namespace: special
       key: DB_PASSWORD
       # githubSecretName defaults to key if not set
-    - secretRef: api-credentials
+    - secretRef: 
+        name: api-credentials
+        namespace: special
       key: API_KEY
       githubSecretName: CUSTOM_API_KEY
   variables:
-    - configMapRef: env-config
+    - configMapRef: 
+        name: env-config
+        namespace: specific-app
       key: ENVIRONMENT
       # githubVariableName defaults to key if not set
-    - configMapRef: region-config
+    - configMapRef: 
+        name: region-config
+        namespace: specific-app
       key: REGION
       githubVariableName: CUSTOM_REGION
 ```
@@ -108,7 +116,7 @@ kind: GithubSyncRepo
 metadata:
   name: my-repo-sync
 spec:
-  repository: "Qalisa/my-repository"
+  repository: "MyOrganization/my-repository"
   secretsSyncRefs:
     - prod-secrets
     - staging-secrets

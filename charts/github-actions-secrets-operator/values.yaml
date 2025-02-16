@@ -15,12 +15,11 @@ nameOverride: ""
 fullnameOverride: ""
 
 github:
-  # GitHub App configuration
-  appId: ""  # Required: GitHub App ID
-  installationId: ""  # Required: GitHub App Installation ID
-  existingSecret: ""  # Name of existing secret containing GitHub App private key
-  # If existingSecret is not provided, create a new secret with this key
-  privateKey: ""  # GitHub App private key in PEM format
+  appId: ""  # GitHub App ID
+  installationId: ""  # GitHub App Installation ID
+  privateKey: # Either existingSecret or manual is required
+    existingSecret: ""  # Name of existing secret witin chart namespace, containing "private-key" w/ PEM format
+    explicit: ""  # GitHub App private key in PEM format
 
 serviceAccount:
   # Specifies whether a service account should be created

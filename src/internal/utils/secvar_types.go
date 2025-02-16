@@ -27,6 +27,10 @@ func (cs GithubActionSecVarType) String() string {
 	panic("Unexpected GithubActionSecVarType type")
 }
 
+func (cs GithubActionSecVarType) StringMaybePlurals() string {
+	return cs.String() + "(s)"
+}
+
 func (cs GithubActionSecVarType) AssociatedSyncState(repo *qalisav1alpha1.GithubSyncRepo) *[]qalisav1alpha1.GithubPropertySyncState {
 	switch cs {
 	case Variable:

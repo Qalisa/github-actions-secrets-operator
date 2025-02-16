@@ -51,7 +51,7 @@ func SyncAttempts_ProduceStats(attempsByTypes SyncAttemptsByType) string {
 		statStr := fmt.Sprintf(
 			"%d/%d %s",
 			attemps.SuccessfulWithSkipped(), attemps.Total(),
-			attemptType.String(),
+			strings.ToLower(attemptType.StringMaybePlurals()),
 		)
 		statsByType = append(statsByType, statStr)
 	}

@@ -97,7 +97,7 @@ func SynchronizeToGithub(ctx context.Context, cli client.Client, logger logr.Log
 					)
 
 					// if not, try to update w/ Github API
-					err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, Secret, repo, propertytName)
+					err := secVar.UpdateAgainstGithubApiAs(ctx, ghCli, syncType, repo, propertytName)
 
 					if err != nil {
 						logger.Info("Failed to sync against Github API",

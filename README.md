@@ -22,6 +22,28 @@ Key features:
 - Helm 3.0+
 - GitHub App credentials (see setup below)
 
+## GitHub App Setup
+
+1. Create a new GitHub App:
+   - Go to your organization's settings
+   - Navigate to Developer Settings > GitHub Apps
+   - Click "New GitHub App"
+
+2. Configure the app:
+   - Name: Choose an unique, descriptive name (e.g., "My K8s Secrets Syncer Operator")
+   - Homepage URL: Your organization URL (only descriptive)
+   - Webhook: Check to `Disable` (not needed)
+   - Permissions:
+     - Repository permissions:
+       - `Actions secrets`: Read and write
+       - `Actions variables`: Read and write
+
+3. Generate and download a private key; we'll feed it to Helm. 
+
+4. Get the `AppID` from the Settings page of your Github App, we'll feed it to Helm.
+
+5. Install the app in your organization, then keep in mind the `InstallationID` what was generated for you by looking at this installation page URL; we'll feed it to Helm.
+
 ### Using Helm
 
 1. Add the Helm repository:
@@ -45,30 +67,6 @@ helm install github-actions-secrets-operator qalisa/github-actions-secrets-opera
   --set github.installationId=<your-installation-id> \
   --set github.privateKey.existingSecret=my-github-secret
 ```
-
-## GitHub App Setup
-
-1. Create a new GitHub App:
-   - Go to your organization's settings
-   - Navigate to Developer Settings > GitHub Apps
-   - Click "New GitHub App"
-
-2. Configure the app:
-   - Name: Choose a descriptive name (e.g., "K8s Secrets Sync")
-   - Homepage URL: Your organization URL
-   - Webhook: Disable (not needed)
-   - Permissions:
-     - Repository permissions:
-       - Actions secrets and variables: Read and write
-
-3. Generate and download the private key
-
-4. Install the app in your organization
-
-5. Note down:
-   - App ID (from the app's settings page)
-   - Installation ID (from the installation URL or API)
-   - Private key (downloaded in step 3)
 
 ## Usage
 
